@@ -6,6 +6,15 @@ and execution-plan features.
 
 Existing indexes are checked against PostgreSQL
 before a candidate is returned.
+
+The generator supports:
+    - Single-column index candidates
+    - Composite index candidates
+    - Candidate deduplication
+    - Candidate relationship classification
+    - Existing-index detection
+    - Composite-index prefix coverage detection
+    - Safe column-reference resolution
 """
 
 from config.database import get_connection
@@ -32,8 +41,15 @@ def resolve_column_reference(
         (table_name, column_name)
     """
 
+    if not column_reference:
+        return None, None
+
+    aliases = aliases or {}
+    tables = tables or []
+
     # -----------------------------------------------------
     # Qualified column reference
+    #
     # Example:
     #     p.category_id
     #     oi.product_id
@@ -41,16 +57,12 @@ def resolve_column_reference(
 
     if "." in column_reference:
 
-        alias, column = (
-            column_reference.split(
-                ".",
-                1
-            )
+        alias, column = column_reference.split(
+            ".",
+            1
         )
 
-        table = aliases.get(
-            alias
-        )
+        table = aliases.get(alias)
 
         if table:
             return table, column
@@ -64,8 +76,7 @@ def resolve_column_reference(
     # the column can safely be resolved to that table.
     # -----------------------------------------------------
 
-    if tables and len(tables) == 1:
-
+    if len(tables) == 1:
         return tables[0], column_reference
 
     # -----------------------------------------------------
@@ -84,6 +95,7 @@ def resolve_column_reference(
 
     # -----------------------------------------------------
     # Ambiguous column reference.
+    #
     # Do not guess the table.
     # -----------------------------------------------------
 
@@ -105,6 +117,9 @@ def get_existing_indexes(
     list of dict
         Existing index information.
     """
+
+    if not table_name:
+        return []
 
     connection = None
     cursor = None
@@ -136,8 +151,7 @@ def get_existing_indexes(
             indexes.append(
                 {
                     "index_name": index_name,
-                    "index_definition":
-                        index_definition,
+                    "index_definition": index_definition,
                 }
             )
 
@@ -168,12 +182,12 @@ def get_indexed_columns(
     CREATE UNIQUE INDEX customers_pkey
     ON public.customers USING btree (customer_id)
 
-    -> ["customer_id"]
+        -> ["customer_id"]
 
     CREATE INDEX idx_orders_customer_date
     ON public.orders USING btree (customer_id, order_date)
 
-    -> ["customer_id", "order_date"]
+        -> ["customer_id", "order_date"]
 
     Returns
     -------
@@ -226,15 +240,239 @@ def get_indexed_columns(
             ):
                 column = column[1:-1]
 
-            columns.append(
-                column
-            )
+            columns.append(column)
 
         return columns
 
     except (AttributeError, TypeError):
 
         return []
+
+
+# =========================================================
+# NORMALIZE CANDIDATE COLUMNS
+# =========================================================
+
+def normalize_candidate_columns(
+    column_name
+):
+    """
+    Convert a candidate column representation into
+    an ordered list of column names.
+
+    Accepted input formats
+    -----------------------
+    "customer_id"
+        -> ["customer_id"]
+
+    "customer_id, order_date"
+        -> ["customer_id", "order_date"]
+
+    ["customer_id", "order_date"]
+        -> ["customer_id", "order_date"]
+
+    ("customer_id", "order_date")
+        -> ["customer_id", "order_date"]
+
+    Duplicate columns are removed while preserving order.
+    """
+
+    if not column_name:
+        return []
+
+    # -----------------------------------------------------
+    # Support list/tuple input.
+    #
+    # This is important because composite candidate
+    # generation naturally produces a list of columns.
+    # -----------------------------------------------------
+
+    if isinstance(column_name, (list, tuple)):
+
+        raw_columns = column_name
+
+    elif isinstance(column_name, str):
+
+        raw_columns = column_name.split(",")
+
+    else:
+
+        return []
+
+    columns = []
+
+    for column in raw_columns:
+
+        column = str(column).strip()
+
+        if (
+            column
+            and column not in columns
+        ):
+            columns.append(column)
+
+    return columns
+
+
+# =========================================================
+# CLASSIFY CANDIDATE RELATIONSHIP
+# =========================================================
+
+def classify_candidate_relationship(
+    candidate_columns,
+    existing_columns
+):
+    """
+    Classify the relationship between two ordered
+    candidate column lists.
+
+    Returns
+    -------
+    str
+        One of:
+
+        - "exact_duplicate"
+        - "candidate_prefix"
+        - "existing_prefix"
+        - "different"
+
+    Examples
+    --------
+    Candidate:
+        (customer_id, order_date)
+
+    Existing:
+        (customer_id, order_date)
+
+        -> exact_duplicate
+
+    Candidate:
+        (customer_id, order_date)
+
+    Existing:
+        (customer_id, order_date, status)
+
+        -> candidate_prefix
+
+    Candidate:
+        (customer_id, order_date, status)
+
+    Existing:
+        (customer_id, order_date)
+
+        -> existing_prefix
+
+    Candidate:
+        (customer_id, order_date)
+
+    Existing:
+        (order_date, customer_id)
+
+        -> different
+    """
+
+    candidate = normalize_candidate_columns(
+        candidate_columns
+    )
+
+    existing = normalize_candidate_columns(
+        existing_columns
+    )
+
+    if not candidate or not existing:
+        return "different"
+
+    # -----------------------------------------------------
+    # Exact same ordered column set.
+    # -----------------------------------------------------
+
+    if candidate == existing:
+        return "exact_duplicate"
+
+    # -----------------------------------------------------
+    # Candidate is the leftmost prefix of the existing
+    # candidate.
+    # -----------------------------------------------------
+
+    if (
+        len(candidate) < len(existing)
+        and existing[:len(candidate)] == candidate
+    ):
+        return "candidate_prefix"
+
+    # -----------------------------------------------------
+    # Existing candidate is the leftmost prefix of the
+    # new candidate.
+    # -----------------------------------------------------
+
+    if (
+        len(existing) < len(candidate)
+        and candidate[:len(existing)] == existing
+    ):
+        return "existing_prefix"
+
+    return "different"
+
+
+# =========================================================
+# CHECK CANDIDATE REDUNDANCY
+# =========================================================
+
+def candidate_is_redundant(
+    table_name,
+    column_names,
+    candidates
+):
+    """
+    Determine whether a composite candidate is an exact
+    duplicate of another candidate for the same table.
+
+    Prefix relationships are intentionally NOT treated as
+    automatic redundancy.
+
+    Example
+    -------
+    Existing candidate:
+        (customer_id, order_date)
+
+    New candidate:
+        (customer_id, order_date, order_id)
+
+    These candidates have a prefix relationship, but the
+    longer candidate may support a different query pattern.
+
+    Therefore, only an exact duplicate is considered
+    redundant by this function.
+    """
+
+    if not table_name:
+        return False
+
+    normalized_columns = normalize_candidate_columns(
+        column_names
+    )
+
+    if len(normalized_columns) < 2:
+        return False
+
+    for candidate in candidates:
+
+        if candidate.get("table_name") != table_name:
+            continue
+
+        existing_columns = normalize_candidate_columns(
+            candidate.get("column_name")
+        )
+
+        relationship = classify_candidate_relationship(
+            normalized_columns,
+            existing_columns
+        )
+
+        if relationship == "exact_duplicate":
+            return True
+
+    return False
 
 
 # =========================================================
@@ -262,20 +500,15 @@ def column_has_index(
         -> customer_id is covered
         -> order_date is not treated as independently covered
 
-    Parameters
-    ----------
-    table_name : str
-        PostgreSQL table name.
-
-    column_name : str
-        Column to check.
-
     Returns
     -------
     bool
         True when the column is the leftmost column
         of an existing index.
     """
+
+    if not table_name or not column_name:
+        return False
 
     indexes = get_existing_indexes(
         table_name
@@ -316,9 +549,9 @@ def add_candidate_if_new(
     """
     Add a single-column candidate if:
 
-    1. table/column is valid
-    2. it isn't already present in candidates
-    3. it isn't already indexed
+        1. table/column is valid
+        2. it isn't already present in candidates
+        3. it isn't already indexed
     """
 
     if not table_name:
@@ -335,10 +568,8 @@ def add_candidate_if_new(
     for candidate in candidates:
 
         if (
-            candidate["table_name"]
-            == table_name
-            and candidate["column_name"]
-            == column_name
+            candidate["table_name"] == table_name
+            and candidate["column_name"] == column_name
         ):
             return
 
@@ -378,14 +609,17 @@ def add_composite_candidate_if_new(
     """
     Add a composite index candidate when:
 
-    1. table is valid
-    2. at least two distinct columns are provided
-    3. it isn't already present in candidates
-    4. it isn't already covered by an existing index
+        1. table is valid
+        2. at least two distinct columns are provided
+        3. it isn't already present in candidates
+        4. it isn't already covered by an existing index
 
     Existing composite indexes are considered covering when
     the candidate columns match the leftmost columns of the
     existing B-tree index.
+
+    Candidate order is preserved because index column order
+    affects PostgreSQL query planning.
     """
 
     if not table_name:
@@ -395,20 +629,15 @@ def add_composite_candidate_if_new(
         return
 
     # -----------------------------------------------------
-    # Remove duplicate columns while preserving order.
+    # Normalize the candidate columns.
+    #
+    # normalize_candidate_columns() accepts both strings
+    # and list/tuple representations.
     # -----------------------------------------------------
 
-    unique_columns = []
-
-    for column_name in column_names:
-
-        if (
-            column_name
-            and column_name not in unique_columns
-        ):
-            unique_columns.append(
-                column_name
-            )
+    unique_columns = normalize_candidate_columns(
+        column_names
+    )
 
     # -----------------------------------------------------
     # A composite index requires at least two columns.
@@ -417,23 +646,20 @@ def add_composite_candidate_if_new(
     if len(unique_columns) < 2:
         return
 
-    # -----------------------------------------------------
-    # Avoid duplicate composite candidates.
-    # -----------------------------------------------------
-
     composite_column_name = ", ".join(
         unique_columns
     )
 
-    for candidate in candidates:
+    # -----------------------------------------------------
+    # Avoid exact duplicate composite candidates.
+    # -----------------------------------------------------
 
-        if (
-            candidate["table_name"]
-            == table_name
-            and candidate["column_name"]
-            == composite_column_name
-        ):
-            return
+    if candidate_is_redundant(
+        table_name,
+        unique_columns,
+        candidates
+    ):
+        return
 
     # -----------------------------------------------------
     # Check existing PostgreSQL indexes.
@@ -457,25 +683,43 @@ def add_composite_candidate_if_new(
         if not indexed_columns:
             continue
 
+        relationship = classify_candidate_relationship(
+            unique_columns,
+            indexed_columns
+        )
+
         # -------------------------------------------------
-        # Existing index covers the candidate when the
-        # candidate columns form its leftmost prefix.
+        # Exact duplicate:
         #
-        # Example:
+        # Existing:
+        #     (customer_id, order_date)
+        #
+        # Candidate:
+        #     (customer_id, order_date)
+        #
+        # No new index is required.
+        # -------------------------------------------------
+
+        if relationship == "exact_duplicate":
+            return
+
+        # -------------------------------------------------
+        # Candidate is already covered by the leftmost
+        # prefix of an existing index.
         #
         # Existing:
         #     (customer_id, order_date, status)
         #
         # Candidate:
         #     (customer_id, order_date)
-        #
-        # The candidate is already covered.
         # -------------------------------------------------
 
-        if indexed_columns[
-            :len(unique_columns)
-        ] == unique_columns:
+        if relationship == "candidate_prefix":
             return
+
+    # -----------------------------------------------------
+    # Add the new composite candidate.
+    # -----------------------------------------------------
 
     candidates.append(
         {
@@ -503,9 +747,9 @@ def generate_composite_candidates(
 
     Column priority:
 
-    1. WHERE columns
-    2. ORDER BY columns
-    3. GROUP BY columns
+        1. WHERE columns
+        2. ORDER BY columns
+        3. GROUP BY columns
 
     Only columns belonging to the same table are combined.
 
@@ -513,12 +757,23 @@ def generate_composite_candidates(
     JOIN conditions may involve different tables.
     """
 
+    query_metadata = query_metadata or {}
+    aliases = aliases or {}
+    tables = tables or []
+
     table_columns = {}
 
     def collect_columns(
         column_references
     ):
-        for column_reference in column_references:
+        """
+        Resolve and collect columns while preserving
+        their first-seen order.
+        """
+
+        for column_reference in (
+            column_references or []
+        ):
 
             table_name, column_name = (
                 resolve_column_reference(
@@ -595,12 +850,19 @@ def generate_index_candidates(
 
     Candidate sources:
 
-    - WHERE filters
-    - JOIN conditions
-    - ORDER BY columns
-    - GROUP BY columns
-    - Composite filter/order patterns
+        - WHERE filters
+        - JOIN conditions
+        - ORDER BY columns
+        - GROUP BY columns
+        - Composite filter/order patterns
     """
+
+    # features is currently retained as part of the
+    # public API for compatibility with the recommendation
+    # pipeline and future plan-aware candidate generation.
+    _ = features
+
+    query_metadata = query_metadata or {}
 
     candidates = []
 
