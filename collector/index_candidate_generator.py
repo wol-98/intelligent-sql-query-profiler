@@ -150,6 +150,8 @@ def get_existing_indexes(
 
         if connection:
             connection.close()
+
+
 # =========================================================
 # PARSE INDEXED COLUMNS
 # =========================================================
@@ -183,6 +185,7 @@ def get_indexed_columns(
         return []
 
     try:
+
         opening_parenthesis = (
             index_definition.rfind("(")
         )
@@ -212,7 +215,10 @@ def get_indexed_columns(
             if not column:
                 continue
 
+            # -------------------------------------------------
             # Remove optional PostgreSQL identifier quotes.
+            # -------------------------------------------------
+
             if (
                 len(column) >= 2
                 and column[0] == '"'
@@ -220,16 +226,21 @@ def get_indexed_columns(
             ):
                 column = column[1:-1]
 
-            columns.append(column)
+            columns.append(
+                column
+            )
 
         return columns
 
     except (AttributeError, TypeError):
+
         return []
+
 
 # =========================================================
 # CHECK WHETHER COLUMN IS ALREADY INDEXED
 # =========================================================
+
 def column_has_index(
     table_name,
     column_name
@@ -291,7 +302,7 @@ def column_has_index(
 
 
 # =========================================================
-# ADD CANDIDATE
+# ADD SINGLE-COLUMN CANDIDATE
 # =========================================================
 
 def add_candidate_if_new(
@@ -303,7 +314,7 @@ def add_candidate_if_new(
     source
 ):
     """
-    Add a candidate if:
+    Add a single-column candidate if:
 
     1. table/column is valid
     2. it isn't already present in candidates
@@ -353,6 +364,224 @@ def add_candidate_if_new(
 
 
 # =========================================================
+# ADD COMPOSITE CANDIDATE
+# =========================================================
+
+def add_composite_candidate_if_new(
+    candidates,
+    table_name,
+    column_names,
+    index_type,
+    reason,
+    source
+):
+    """
+    Add a composite index candidate when:
+
+    1. table is valid
+    2. at least two distinct columns are provided
+    3. it isn't already present in candidates
+    4. it isn't already covered by an existing index
+
+    Existing composite indexes are considered covering when
+    the candidate columns match the leftmost columns of the
+    existing B-tree index.
+    """
+
+    if not table_name:
+        return
+
+    if not column_names:
+        return
+
+    # -----------------------------------------------------
+    # Remove duplicate columns while preserving order.
+    # -----------------------------------------------------
+
+    unique_columns = []
+
+    for column_name in column_names:
+
+        if (
+            column_name
+            and column_name not in unique_columns
+        ):
+            unique_columns.append(
+                column_name
+            )
+
+    # -----------------------------------------------------
+    # A composite index requires at least two columns.
+    # -----------------------------------------------------
+
+    if len(unique_columns) < 2:
+        return
+
+    # -----------------------------------------------------
+    # Avoid duplicate composite candidates.
+    # -----------------------------------------------------
+
+    composite_column_name = ", ".join(
+        unique_columns
+    )
+
+    for candidate in candidates:
+
+        if (
+            candidate["table_name"]
+            == table_name
+            and candidate["column_name"]
+            == composite_column_name
+        ):
+            return
+
+    # -----------------------------------------------------
+    # Check existing PostgreSQL indexes.
+    # -----------------------------------------------------
+
+    existing_indexes = get_existing_indexes(
+        table_name
+    )
+
+    for index in existing_indexes:
+
+        definition = index.get(
+            "index_definition",
+            ""
+        )
+
+        indexed_columns = get_indexed_columns(
+            definition
+        )
+
+        if not indexed_columns:
+            continue
+
+        # -------------------------------------------------
+        # Existing index covers the candidate when the
+        # candidate columns form its leftmost prefix.
+        #
+        # Example:
+        #
+        # Existing:
+        #     (customer_id, order_date, status)
+        #
+        # Candidate:
+        #     (customer_id, order_date)
+        #
+        # The candidate is already covered.
+        # -------------------------------------------------
+
+        if indexed_columns[
+            :len(unique_columns)
+        ] == unique_columns:
+            return
+
+    candidates.append(
+        {
+            "table_name": table_name,
+            "column_name": composite_column_name,
+            "index_type": index_type,
+            "reason": reason,
+            "source": source,
+        }
+    )
+
+
+# =========================================================
+# BUILD COMPOSITE COLUMN GROUPS
+# =========================================================
+
+def generate_composite_candidates(
+    query_metadata,
+    aliases,
+    tables
+):
+    """
+    Identify columns that can participate in a composite
+    index candidate.
+
+    Column priority:
+
+    1. WHERE columns
+    2. ORDER BY columns
+    3. GROUP BY columns
+
+    Only columns belonging to the same table are combined.
+
+    JOIN columns are intentionally handled separately because
+    JOIN conditions may involve different tables.
+    """
+
+    table_columns = {}
+
+    def collect_columns(
+        column_references
+    ):
+        for column_reference in column_references:
+
+            table_name, column_name = (
+                resolve_column_reference(
+                    column_reference,
+                    aliases,
+                    tables
+                )
+            )
+
+            # -------------------------------------------------
+            # Do not guess when the table cannot be resolved.
+            # -------------------------------------------------
+
+            if not table_name or not column_name:
+                continue
+
+            if table_name not in table_columns:
+                table_columns[table_name] = []
+
+            if column_name not in (
+                table_columns[table_name]
+            ):
+                table_columns[table_name].append(
+                    column_name
+                )
+
+    # -----------------------------------------------------
+    # Filtering columns have highest priority.
+    # -----------------------------------------------------
+
+    collect_columns(
+        query_metadata.get(
+            "where_columns",
+            []
+        )
+    )
+
+    # -----------------------------------------------------
+    # ORDER BY columns come next.
+    # -----------------------------------------------------
+
+    collect_columns(
+        query_metadata.get(
+            "order_by_columns",
+            []
+        )
+    )
+
+    # -----------------------------------------------------
+    # GROUP BY columns come last.
+    # -----------------------------------------------------
+
+    collect_columns(
+        query_metadata.get(
+            "group_by_columns",
+            []
+        )
+    )
+
+    return table_columns
+
+
+# =========================================================
 # GENERATE CANDIDATES
 # =========================================================
 
@@ -370,6 +599,7 @@ def generate_index_candidates(
     - JOIN conditions
     - ORDER BY columns
     - GROUP BY columns
+    - Composite filter/order patterns
     """
 
     candidates = []
@@ -494,6 +724,33 @@ def generate_index_candidates(
             "B-tree",
             "GROUP BY",
             column_reference
+        )
+
+    # -----------------------------------------------------
+    # COMPOSITE INDEX CANDIDATES
+    # -----------------------------------------------------
+
+    composite_columns = generate_composite_candidates(
+        query_metadata,
+        aliases,
+        tables
+    )
+
+    for table_name, column_names in (
+        composite_columns.items()
+    ):
+
+        source = ", ".join(
+            column_names
+        )
+
+        add_composite_candidate_if_new(
+            candidates,
+            table_name,
+            column_names,
+            "B-tree",
+            "Composite filter/order pattern",
+            source
         )
 
     return candidates

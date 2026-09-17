@@ -453,3 +453,287 @@ def test_column_has_index_composite_non_leftmost_column(
         "orders",
         "order_date",
     ) is False
+# =========================================================
+# COMPOSITE INDEX CANDIDATES
+# =========================================================
+
+@patch(
+    "collector.index_candidate_generator.get_existing_indexes",
+    return_value=[],
+)
+@patch(
+    "collector.index_candidate_generator.column_has_index",
+    return_value=False,
+)
+def test_generate_composite_where_candidate(
+    mock_column_has_index,
+    mock_get_existing_indexes,
+):
+    query_metadata = {
+        "tables": ["orders"],
+        "aliases": {
+            "o": "orders",
+        },
+        "where_columns": [
+            "o.customer_id",
+            "o.order_date",
+        ],
+        "join_columns": [],
+        "order_by_columns": [],
+        "group_by_columns": [],
+    }
+
+    candidates = generate_index_candidates(
+        {},
+        query_metadata,
+    )
+
+    composite_candidates = [
+        candidate
+        for candidate in candidates
+        if "," in candidate["column_name"]
+    ]
+
+    assert len(composite_candidates) == 1
+
+    candidate = composite_candidates[0]
+
+    assert candidate["table_name"] == "orders"
+    assert candidate["column_name"] == (
+        "customer_id, order_date"
+    )
+    assert candidate["index_type"] == "B-tree"
+    assert candidate["reason"] == (
+        "Composite filter/order pattern"
+    )
+    assert candidate["source"] == (
+        "customer_id, order_date"
+    )
+
+
+@patch(
+    "collector.index_candidate_generator.get_existing_indexes",
+    return_value=[],
+)
+@patch(
+    "collector.index_candidate_generator.column_has_index",
+    return_value=False,
+)
+def test_composite_candidate_preserves_column_order(
+    mock_column_has_index,
+    mock_get_existing_indexes,
+):
+    query_metadata = {
+        "tables": ["orders"],
+        "aliases": {
+            "o": "orders",
+        },
+        "where_columns": [
+            "o.customer_id",
+            "o.order_date",
+        ],
+        "join_columns": [],
+        "order_by_columns": [
+            "o.order_id",
+        ],
+        "group_by_columns": [],
+    }
+
+    candidates = generate_index_candidates(
+        {},
+        query_metadata,
+    )
+
+    composite_candidates = [
+        candidate
+        for candidate in candidates
+        if "," in candidate["column_name"]
+    ]
+
+    assert len(composite_candidates) == 1
+
+    assert composite_candidates[0]["column_name"] == (
+        "customer_id, order_date, order_id"
+    )
+
+
+@patch(
+    "collector.index_candidate_generator.get_existing_indexes",
+    return_value=[],
+)
+@patch(
+    "collector.index_candidate_generator.column_has_index",
+    return_value=False,
+)
+def test_composite_candidate_does_not_mix_tables(
+    mock_column_has_index,
+    mock_get_existing_indexes,
+):
+    query_metadata = {
+        "tables": [
+            "orders",
+            "customers",
+        ],
+        "aliases": {
+            "o": "orders",
+            "c": "customers",
+        },
+        "where_columns": [
+            "o.order_date",
+            "c.city",
+        ],
+        "join_columns": [],
+        "order_by_columns": [],
+        "group_by_columns": [],
+    }
+
+    candidates = generate_index_candidates(
+        {},
+        query_metadata,
+    )
+
+    composite_candidates = [
+        candidate
+        for candidate in candidates
+        if "," in candidate["column_name"]
+    ]
+
+    assert composite_candidates == []
+
+
+@patch(
+    "collector.index_candidate_generator.get_existing_indexes",
+    return_value=[],
+)
+@patch(
+    "collector.index_candidate_generator.column_has_index",
+    return_value=False,
+)
+def test_single_column_pattern_does_not_create_composite(
+    mock_column_has_index,
+    mock_get_existing_indexes,
+):
+    query_metadata = {
+        "tables": ["orders"],
+        "aliases": {
+            "o": "orders",
+        },
+        "where_columns": [
+            "o.customer_id",
+        ],
+        "join_columns": [],
+        "order_by_columns": [],
+        "group_by_columns": [],
+    }
+
+    candidates = generate_index_candidates(
+        {},
+        query_metadata,
+    )
+
+    composite_candidates = [
+        candidate
+        for candidate in candidates
+        if "," in candidate["column_name"]
+    ]
+
+    assert composite_candidates == []
+
+
+@patch(
+    "collector.index_candidate_generator.get_existing_indexes"
+)
+@patch(
+    "collector.index_candidate_generator.column_has_index",
+    return_value=False,
+)
+def test_existing_composite_prefix_prevents_candidate(
+    mock_column_has_index,
+    mock_get_existing_indexes,
+):
+    mock_get_existing_indexes.return_value = [
+        {
+            "index_name": (
+                "idx_orders_customer_date_status"
+            ),
+            "index_definition": (
+                "CREATE INDEX "
+                "idx_orders_customer_date_status "
+                "ON public.orders USING btree "
+                "(customer_id, order_date, status)"
+            ),
+        }
+    ]
+
+    query_metadata = {
+        "tables": ["orders"],
+        "aliases": {
+            "o": "orders",
+        },
+        "where_columns": [
+            "o.customer_id",
+            "o.order_date",
+        ],
+        "join_columns": [],
+        "order_by_columns": [],
+        "group_by_columns": [],
+    }
+
+    candidates = generate_index_candidates(
+        {},
+        query_metadata,
+    )
+
+    composite_candidates = [
+        candidate
+        for candidate in candidates
+        if "," in candidate["column_name"]
+    ]
+
+    assert composite_candidates == []
+
+
+@patch(
+    "collector.index_candidate_generator.get_existing_indexes",
+    return_value=[],
+)
+@patch(
+    "collector.index_candidate_generator.column_has_index",
+    return_value=False,
+)
+def test_composite_candidate_removes_duplicate_columns(
+    mock_column_has_index,
+    mock_get_existing_indexes,
+):
+    query_metadata = {
+        "tables": ["orders"],
+        "aliases": {
+            "o": "orders",
+        },
+        "where_columns": [
+            "o.customer_id",
+            "o.order_date",
+        ],
+        "join_columns": [],
+        "order_by_columns": [
+            "o.customer_id",
+        ],
+        "group_by_columns": [],
+    }
+
+    candidates = generate_index_candidates(
+        {},
+        query_metadata,
+    )
+
+    composite_candidates = [
+        candidate
+        for candidate in candidates
+        if "," in candidate["column_name"]
+    ]
+
+    assert len(composite_candidates) == 1
+
+    assert composite_candidates[0]["column_name"] == (
+        "customer_id, order_date"
+    )
