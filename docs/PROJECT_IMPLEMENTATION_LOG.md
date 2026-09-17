@@ -1,0 +1,1152 @@
+**Intelligent SQL Query Profiler & Index Optimization Engine**  
+**Project Implementation Log**  
+**Project Type:** MSc End Semester Project  
+   
+ **Project Scope:** 100-mark research-oriented prototype  
+   
+ **Team:** Wol, Delvin, Leon, Samrin  
+   
+ **Current implementation checkpoint:** M11 — Validation Analysis & Evaluation Metrics  
+   
+ **Repository:** intelligent-sql-query-profiler  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OMQ2AABAAsSNBCkJfE1pYGfHAiAU2QtIq6DIzW7UHAMBfnGt1V8fXEwAAXrse4dwF6o2O55YAAAAASUVORK5CYII=)  
+**1. Purpose of This Document**  
+This document records the actual development and implementation progress of the **Intelligent SQL Query Profiler & Index Optimization Engine**.  
+It is intended to:  
+- maintain a chronological technical record of the project;  
+- distinguish the originally planned scope from functionality actually implemented;  
+- document the implementation approach, modules, experiments, findings, and limitations;  
+- provide a basis for the final project report, presentation, and viva;  
+- establish a clear baseline before the project is extended with advanced features.  
+This is an **implementation log**, not the final project report. Future enhancements are explicitly separated from completed work.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANElEQVR4nO3OQQmAABRAsaeILbwZ9Fewo0Gs4E2ELcGWmTmqKwAA/uLeqr06v54AAPDa+gAthwNEfGhnhAAAAABJRU5ErkJggg==)  
+**2. Original Project Definition**  
+**2.1 Project Aim**  
+The project aims to design and develop an intelligent SQL query profiling and index optimization system that analyzes database workloads, recommends appropriate indexes, and measures their actual impact on query performance.  
+The original project plan defines the system as one that observes SQL workloads, profiles query performance, analyzes SQL structure and database characteristics, recommends candidate indexes, and experimentally validates whether recommendations improve query performance.  
+**2.2 Problem Statement**  
+Poorly optimized relational-database queries may scan large numbers of rows, perform costly joins, filter large tables, or otherwise consume database resources inefficiently.  
+Indexes can improve query performance, but unnecessary indexes introduce storage and write-maintenance costs.  
+The project therefore focuses on identifying useful index candidates from observed workloads and validating recommendations through measured experiments.  
+**2.3 Research Question**  
+*Can workload-aware analysis of SQL query patterns and database characteristics be used to generate effective index recommendations that produce measurable improvements in query performance?*  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OQQmAABRAsSfYxKK/kYXEkyk8WcGbCFuCLTOzVXsAAPzFuVZ3dXw9AQDgtesB/v8F8JQadPwAAAAASUVORK5CYII=)  
+**3. Original Planned Architecture**  
+The original project plan defined the following high-level workflow:  
+OBSERVE  
+    ↓  
+ PROFILE  
+    ↓  
+ PARSE  
+    ↓  
+ ANALYZE  
+    ↓  
+ RECOMMEND  
+    ↓  
+ IMPLEMENT  
+    ↓  
+ BENCHMARK  
+    ↓  
+ REPORT  
+   
+The planned system components were:  
+1. PostgreSQL database  
+2. Workload generator  
+3. Query collector  
+4. SQL parser  
+5. Statistics analyzer  
+6. Candidate generator  
+7. Recommendation engine  
+8. Benchmark engine  
+9. Dashboard  
+The project plan also identified the major development phases as requirements and architecture, database/workload development, query collection and parsing, candidate generation and scoring, benchmarking, integration, dashboard integration, experiments/refinement, and final report/viva preparation.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANklEQVR4nO3OUQmAABBAsSeYxZyXSzCJASxgACv4J8KWYMvMbNURAAB/ca7VXe1fTwAAeO16AKe+BdmJqrPdAAAAAElFTkSuQmCC)  
+**4. Team Responsibilities**  
+| | | |  
+|-|-|-|  
+| **Member** | **Role** | **Main Responsibility** |   
+| Wol | Database & Workload Engineer | PostgreSQL, schema, synthetic data, workload, database environment |   
+| Delvin | Python Query Analysis Engineer | Query collection, SQL parsing, classification and feature extraction |   
+| Leon | Optimization & Recommendation Engineer | Candidate generation, scoring, ranking and explanations |   
+| Samrin | Benchmarking & Visualization Engineer | Controlled experiments, metrics, validation and dashboard |   
+   
+The project is being developed as one integrated system. Individual ownership is used for implementation, but the complete architecture is intended to be understood by all members.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAM0lEQVR4nO3OMQ0AIAwAwZIgBKm1gjSMNCwYYCIkd9OP3zJzRMQMAAB+sfqJeroBAMCN2pTWBSSZVtjzAAAAAElFTkSuQmCC)  
+**5. Development Milestone Overview**  
+| | | |  
+|-|-|-|  
+| **Milestone** | **Area** | **Status** |   
+| M0 | Environment and dependencies | Completed |   
+| M1 | Database foundation | Completed |   
+| M2 | Workload and baseline benchmarking | Completed |   
+| M3 | Query collector | Completed |   
+| M4 | SQL parser | Completed |   
+| M5 | Execution-plan analysis and feature extraction | Completed |   
+| M6 | Index candidate generation | Completed |   
+| M7 | Recommendation engine | Completed |   
+| M8 | Benchmarking engine | Completed |   
+| M9 | Dashboard | Planned / not yet completed |   
+| M10 | Validation decision layer | Completed |   
+| M11 | Validation analysis and evaluation metrics | Completed |   
+| Git checkpoint | Version-controlled baseline | Completed |   
+| Advanced phase | Extended optimization intelligence | Next phase |   
+   
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OQQmAABRAsSd49m4tA8nPaQJjWMGbCFuCLTOzV2cAAPzFvVZbdXw9AQDgtesBorcEPwOKyvQAAAAASUVORK5CYII=)  
+   
+**6. M0 — Environment and Project Setup**  
+**6.1 Development Environment**  
+The project is being developed in a Linux environment using Linux Mint.  
+The Python environment uses:  
+Python 3.12.3  
+   
+A project-specific virtual environment is maintained as:  
+.venv/  
+   
+The virtual environment is excluded from Git.  
+**6.2 Main Technologies**  
+The current implementation uses:  
+- Python  
+- PostgreSQL  
+- Supabase PostgreSQL  
+- psycopg2  
+- pandas  
+- NumPy  
+- SQL parsing utilities  
+- SQLAlchemy  
+- Faker  
+- Streamlit  
+- Plotly  
+- Git/GitHub  
+The project dependency list is maintained in:  
+requirements.txt  
+   
+**6.3 Database Connection**  
+Database access is centralized in:  
+config/database.py  
+   
+The connection wrapper loads configuration from environment variables and connects to PostgreSQL using SSL.  
+The .env file is deliberately excluded from Git because it contains database credentials.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANklEQVR4nO3OQQmAABRAsSfYxZo/kSGMYQLPJrCCNxG2BFtmZquOAAD4i3Ot7mr/egIAwGvXA4qrBdGuSdJuAAAAAElFTkSuQmCC)  
+**7. M1 — Database Foundation**  
+**7.1 Database Platform**  
+The project uses **Supabase PostgreSQL** rather than a locally hosted PostgreSQL instance.  
+The confirmed database environment is:  
+PostgreSQL 17.6  
+ Architecture: aarch64  
+ Database: postgres  
+ User: postgres  
+   
+The connection was independently tested successfully.  
+**7.2 Relational Schema**  
+The project uses a transactional business-style relational schema containing:  
+customers  
+ products  
+ orders  
+ order_items  
+ payments  
+ shipments  
+   
+The schema is maintained in:  
+database/schema.sql  
+   
+**Customers**  
+customer_id  
+ name  
+ city  
+ segment  
+ registration_date  
+   
+**Products**  
+product_id  
+ category_id  
+ price  
+ stock  
+ product_name  
+   
+**Orders**  
+order_id  
+ customer_id  
+ order_date  
+ status  
+ total_amount  
+   
+**Order Items**  
+order_item_id  
+ order_id  
+ product_id  
+ quantity  
+ unit_price  
+   
+**Payments**  
+payment_id  
+ order_id  
+ payment_date  
+ method  
+ amount  
+ status  
+   
+**Shipments**  
+shipment_id  
+ order_id  
+ shipment_date  
+ carrier  
+ delivery_status  
+   
+   
+**7.3 Current Data Volume**  
+The current database contains approximately:  
+| | |  
+|-|-|  
+| **Table** | **Rows** |   
+| customers | 10,000 |   
+| products | 1,000 |   
+| orders | 50,000 |   
+| order_items | 150,000 |   
+| payments | 50,000 |   
+| shipments | 25,100 |   
+   
+The dataset is synthetic and is intended to provide repeatable workloads containing filtering, joining, sorting and aggregation patterns.  
+**7.4 Secondary Index Strategy**  
+No permanent secondary indexes are maintained for the baseline workload.  
+Primary-key indexes remain part of the database schema.  
+Candidate indexes are created temporarily during controlled validation experiments and removed after the experiment.  
+This allows BEFORE/AFTER measurements without permanently changing the baseline database state.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAM0lEQVR4nO3KsQ0AIRAEsUW6Qij1KvnevhMSYmKQ7GiCGd09k3wBAOAVf+2o4wYAwE1qAdYuAy151mgcAAAAAElFTkSuQmCC)  
+**8. M2 — Workload Design and Baseline**  
+The controlled workload is maintained in:  
+database/workload.sql  
+   
+It currently contains 15 SQL queries identified as Q001–Q015.  
+The workload was designed to cover the query patterns identified in the original project plan:  
+- equality filters;  
+- range filters;  
+- multiple predicates;  
+- JOIN-heavy queries;  
+- ORDER BY/LIMIT;  
+- GROUP BY and aggregation;  
+- large-table queries;  
+- queries where indexing may provide little benefit.  
+**8.1 Query Workload**  
+| | |  
+|-|-|  
+| **Query** | **Main Pattern** |   
+| Q001 | Equality filter on orders.customer_id |   
+| Q002 | Equality filter on orders.status |   
+| Q003 | Recent-date filter |   
+| Q004 | Multiple predicates |   
+| Q005 | Date + amount range conditions |   
+| Q006 | JOIN with customer-city filter |   
+| Q007 | Product category filter |   
+| Q008 | Product price range |   
+| Q009 | JOIN between order_items and products with category filter |   
+| Q010 | ORDER BY/LIMIT |   
+| Q011 | GROUP BY customer |   
+| Q012 | Filter + aggregation + GROUP BY |   
+| Q013 | Payment-status filter |   
+| Q014 | Shipment delivery-status filter |   
+| Q015 | Customer segment + JOIN + GROUP BY/ORDER BY |   
+   
+All 15 workload queries were successfully executed through the workload runner.  
+Result:  
+15 successful  
+ 0 failures  
+   
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANElEQVR4nO3OQQmAABRAsad4EEtY9QcxnUms4E2ELcGWmTmrKwAA/uLeqrU6vp4AAPDa/gDzXgM37EF77AAAAABJRU5ErkJggg==)  
+**9. M2 — Baseline Benchmarking**  
+The complete baseline workload was benchmarked using PostgreSQL:  
+EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)  
+   
+The benchmark runner records execution and planning information from the returned JSON plan.  
+Representative baseline execution times included:  
+| | |  
+|-|-|  
+| **Query** | **Average Execution Time** |   
+| Q001 | 3.644 ms |   
+| Q002 | 6.770 ms |   
+| Q003 | 13.373 ms |   
+| Q004 | 4.238 ms |   
+| Q005 | 14.218 ms |   
+| Q006 | 14.525 ms |   
+| Q007 | 0.184 ms |   
+| Q008 | 0.232 ms |   
+| Q009 | 32.374 ms |   
+| Q010 | 9.178 ms |   
+| Q011 | 20.768 ms |   
+| Q012 | 17.768 ms |   
+| Q013 | 7.474 ms |   
+| Q014 | 3.630 ms |   
+| Q015 | 26.720 ms |   
+   
+Q009 was one of the most expensive controlled workload queries and consequently became an important validation case.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANklEQVR4nO3OMQ2AABAAsSPBCj7fFRYQwYwEZiywEZJWQZeZ2ao9AAD+4lyruzq+ngAA8Nr1AMTJBeJDClAyAAAAAElFTkSuQmCC)  
+**10. M3 — Query Collector**  
+The query collection functionality is implemented in:  
+collector/query_collector.py  
+   
+The collector executes workload queries using PostgreSQL EXPLAIN ANALYZE information and stores structured profiling information.  
+The captured profile includes:  
+- query hash;  
+- query text;  
+- query type;  
+- execution time;  
+- planning time;  
+- actual rows;  
+- rows removed by filter;  
+- shared buffer hits;  
+- shared buffer reads;  
+- root plan information;  
+- detailed plan nodes;  
+- extracted plan features;  
+- capture timestamp.  
+The collector therefore forms the bridge between raw SQL execution and structured analysis.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OQQmAABRAsSd4NIGRTPXNaQBrWMGbCFuCLTOzV2cAAPzFvVZbdXw9AQDgtesBhZQEOYZGgUEAAAAASUVORK5CYII=)  
+**11. M4 — SQL Parser**  
+The SQL parser is implemented in:  
+collector/query_parser.py  
+   
+The parser does not execute SQL.  
+It normalizes query text and extracts structural metadata including:  
+query  
+ query_type  
+ tables  
+ aliases  
+ where_columns  
+ join_columns  
+ order_by_columns  
+ group_by_columns  
+   
+The parser was tested against the controlled workload.  
+A later diagnostic identified and corrected GROUP BY parsing so that examples such as:  
+Q011 → customer_id  
+ Q012 → customer_id  
+ Q015 → c.customer_id, c.name  
+   
+are correctly represented.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANElEQVR4nO3OQQmAABRAsad4EEtY9QcxnUms4E2ELcGWmTmrKwAA/uLeqrU6vp4AAPDa/gDzXgM37EF77AAAAABJRU5ErkJggg==)  
+**12. M5 — Execution Plan Analysis**  
+Execution-plan analysis is implemented in:  
+collector/plan_analyzer.py  
+   
+The analyzer recursively walks PostgreSQL's JSON execution plan.  
+For every plan node, the system extracts information such as:  
+depth  
+ node_type  
+ relation_name  
+ alias  
+ index_name  
+ join_type  
+ actual_rows  
+ actual_loops  
+ startup_cost  
+ total_cost  
+ plan_rows  
+ plan_width  
+ rows_removed_by_filter  
+ shared_hit_blocks  
+ shared_read_blocks  
+ filter  
+ index_condition  
+ join_filter  
+ hash_condition  
+   
+The recursive analyzer was tested on a Hash Join example containing:  
+Hash Join  
+ ├── Seq Scan  
+ └── Hash  
+     └── Seq Scan  
+   
+and correctly identified four plan nodes.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANElEQVR4nO3OQQmAABRAsSdYxKY/jMFMIZ7ECt5E2BJsmZmt2gMA4C+Otbqr8+sJAACvXQ85QgYXd/O+eQAAAABJRU5ErkJggg==)  
+**13. M5 — Feature Extraction**  
+Feature extraction is implemented in:  
+collector/feature_extractor.py  
+   
+The system derives structured features from the analyzed execution plan.  
+Current feature groups include:  
+**Plan structure**  
+node_count  
+ node_types  
+ tables  
+   
+**Operations**  
+scan_nodes  
+ join_nodes  
+ aggregate_nodes  
+ sort_nodes  
+   
+**Conditions**  
+filters  
+ index_conditions  
+ join_conditions  
+ index_names  
+   
+**Row and buffer statistics**  
+total_actual_rows  
+ total_plan_rows  
+ total_rows_removed_by_filter  
+ total_shared_hit_blocks  
+ total_shared_read_blocks  
+   
+**Scan and join counts**  
+seq_scan_count  
+ index_scan_count  
+ bitmap_scan_count  
+ hash_join_count  
+ nested_loop_count  
+ merge_join_count  
+   
+**Boolean indicators**  
+has_filter  
+ has_index_condition  
+ has_join  
+ has_sequential_scan  
+ has_index_scan  
+   
+An important implementation detail is that actual_rows at the root of a plan represents the query's returned rows, while total_actual_rows sums rows across plan nodes. These are intentionally different measurements.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OQQmAABRAsSd4NIGhrOTvaQBrWMGbCFuCLTOzV2cAAPzFvVZbdXw9AQDgtesBhYQEO+64Y8AAAAAASUVORK5CYII=)  
+**14. M6 — Index Candidate Generation**  
+Candidate generation is implemented in:  
+collector/index_candidate_generator.py  
+   
+The generator identifies possible B-tree indexes from query metadata and execution-plan information.  
+Candidate sources currently include:  
+- WHERE columns;  
+- JOIN columns;  
+- ORDER BY columns;  
+- GROUP BY columns.  
+The generator resolves qualified references through table aliases and avoids generating candidates for existing indexed columns.  
+Examples generated from the controlled workload include:  
+orders.customer_id  
+ orders.status  
+ orders.order_date  
+ orders.total_amount  
+ customers.city  
+ customers.segment  
+ customers.name  
+ products.category_id  
+ products.price  
+ order_items.product_id  
+ payments.status  
+ shipments.delivery_status  
+   
+Candidate diagnostics were run successfully across the workload.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANElEQVR4nO3OUQmAABBAsSeILQSjXgcrmkOs4J8IW4ItM7NXZwAA/MW1Vlt1fBwBAOC9+wEukwQ+V/SggAAAAABJRU5ErkJggg==)  
+**15. M7 — Recommendation Engine**  
+The recommendation engine is implemented in:  
+collector/recommendation_engine.py  
+   
+The current system uses an explainable heuristic score.  
+Signals include:  
+- filter usage;  
+- rows removed by filters;  
+- sequential scans;  
+- JOIN participation;  
+- ORDER BY usage;  
+- GROUP BY usage;  
+- presence of an existing index condition.  
+The current scoring model uses weighted evidence.  
+Examples of score contributions include:  
+Filter condition                  +30  
+ Very high rows removed            +25  
+ High rows removed                 +15  
+ Significant rows removed          +10  
+ Rows removed                      +5  
+ Sequential scan                   +20  
+ Join condition                    +15  
+ ORDER BY                          +10  
+ GROUP BY                          +10  
+ Existing index condition          -20  
+   
+The final score is bounded between 0 and 100.  
+Each recommendation contains an explanation describing the evidence that contributed to the score.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAALUlEQVR4nO3OQQ0AIAwEsAMlSJ0UrOFkGngRklZBR1WtJDsAAPzizNcDAADuNcKwAyU+nb+5AAAAAElFTkSuQmCC)  
+**16. M7 — Recommendation Results**  
+The recommendation pipeline generated 24 stored recommendation records.  
+The official workload profiles correspond to profiles 2–16.  
+There is one duplicate Q009 profile/recommendation occurrence in the current development history, so benchmark records and recommendation records are not interpreted as a strict one-to-one mapping.  
+Current recommendation priorities include:  
+High  
+ Medium  
+ Low  
+   
+The recommendation engine successfully produces candidate indexes and persists them in:  
+index_recommendations  
+   
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANklEQVR4nO3OMQ2AABAAsSNBACPykMH4NpGACyywEZJWQZeZ2aszAAD+4l6rrTo+jgAA8N71AL/CBEiG5xPoAAAAAElFTkSuQmCC)  
+**17. M8 — Benchmark Engine**  
+Benchmark functionality is implemented in:  
+collector/benchmark_runner.py  
+   
+The benchmark runner executes:  
+EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)  
+   
+and extracts:  
+- execution time;  
+- planning time;  
+- root actual rows;  
+- root shared buffer hits;  
+- root shared buffer reads;  
+- execution plan.  
+For repeated benchmarking it calculates:  
+average  
+ median  
+ minimum  
+ maximum  
+ standard deviation  
+ average planning time  
+ average rows  
+ average shared buffer hits  
+ average shared buffer reads  
+   
+A representative plan is also retained.  
+The benchmark runner supports warm-up executions before measured runs.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OMQ2AABAAsSNhwgJOUPcjIpnRgQU2QtIq6DIze3UGAMBf3Gu1VcfXEwAAXrseaJEEL8XMiYMAAAAASUVORK5CYII=)  
+**18. M8 — Controlled Index Validation**  
+Index validation is implemented in:  
+collector/index_validator.py  
+   
+The validation protocol is:  
+1. Benchmark BEFORE  
+ 2. Create temporary index  
+ 3. ANALYZE affected table  
+ 4. Benchmark AFTER  
+ 5. Detect whether the experimental index was used  
+ 6. Compare plans  
+ 7. Compare returned rows  
+ 8. Calculate improvement  
+ 9. Drop temporary index  
+   
+The validator always attempts to remove the temporary index after the experiment.  
+The index name is generated deterministically:  
+idx_<table>_<column>  
+   
+The validator checks the returned execution plan recursively for use of the experimental index.  
+It records:  
+execution_time_before_ms  
+ execution_time_after_ms  
+ median_before_ms  
+ median_after_ms  
+ improvement_percentage  
+ median_improvement_percentage  
+ rows_before  
+ rows_after  
+ rows_preserved  
+ index_used  
+ index_node_type  
+ plan_changed  
+ before_plan  
+ after_plan  
+   
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OMQ2AABAAsSNhYMMAKlD4OzrxgQU2QtIq6DIzR3UFAMBf3Gu1VefXEwAAXtsfSqADWz4G/HUAAAAASUVORK5CYII=)  
+**19. Q009 Validation Experiment**  
+Q009 became an important test case because it performs a join involving:  
+order_items  
+ products  
+   
+with a category filter.  
+The baseline plan included:  
+Hash Join  
+ ├── Seq Scan → order_items  
+ └── Hash  
+     └── Seq Scan → products  
+   
+The baseline Q009 benchmark was approximately:  
+Average execution time: 32.623 ms  
+ Median execution time: 32.499 ms  
+   
+A controlled experiment using:  
+products(category_id)  
+   
+demonstrated that the experimental index could be used through a:  
+Bitmap Index Scan  
+   
+while the measured performance benefit varied across repeated experiments.  
+One experiment produced approximately:  
+Average improvement: 1.55%  
+ Median improvement: 2.53%  
+   
+Another later controlled experiment produced a negative average improvement while still showing index usage.  
+This variation became an important observation for evaluating the recommendation scoring model.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANklEQVR4nO3OMQ2AABAAsSNhYMEBIpD4ArCJDyywEZJWQZeZOaorAAD+4l6rrTq/ngAA8Nr+AEqmA1hl45m5AAAAAElFTkSuQmCC)  
+**20. Benchmark Result Persistence**  
+Benchmark results are stored in:  
+benchmark_results  
+   
+The original table stored:  
+benchmark_id  
+ recommendation_id  
+ query_text  
+ execution_time_before_ms  
+ execution_time_after_ms  
+ improvement_percentage  
+ rows_before  
+ rows_after  
+ before_plan  
+ after_plan  
+ benchmarked_at  
+   
+The schema was subsequently extended to preserve validation evidence:  
+median_before_ms  
+ median_after_ms  
+ median_improvement_percentage  
+ rows_preserved  
+ index_used  
+ index_node_type  
+ plan_changed  
+ validation_status  
+ validation_reason  
+   
+This change allowed the project to retain not only performance numbers but also evidence about correctness and execution-plan behavior.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANElEQVR4nO3OQQmAABRAsad4FCtY9ecwnkms4E2ELcGWmTmrKwAA/uLeqrU6vp4AAPDa/gDzUgM9+S8z3AAAAABJRU5ErkJggg==)  
+**21. M10 — Validation Evidence Backfill**  
+A backfill procedure was created in:  
+tests/backfill_validation_evidence.py  
+   
+The purpose was to reconstruct validation evidence for previously stored benchmark results.  
+The procedure:  
+1. reads stored BEFORE/AFTER plans;  
+2. retrieves the corresponding recommendation;  
+3. reconstructs the expected temporary index name;  
+4. searches the AFTER plan recursively for index usage;  
+5. compares BEFORE and AFTER plans;  
+6. verifies row preservation;  
+7. updates validation evidence fields.  
+All 23 existing benchmark records were successfully updated.  
+Observed evidence:  
+Rows preserved: 100% of records  
+ Plan changed: 100% of records  
+   
+Index usage varied between recommendations.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OMQ2AABAAsSPBCj5fFyM6mJHAjAU2QtIq6DIzW7UHAMBfnGt1V8fXEwAAXrsexOEF35f1aEgAAAAASUVORK5CYII=)  
+**22. M10 — Validation Decision Layer**  
+The decision layer is implemented in:  
+collector/validation_decision.py  
+   
+The current decision rules are:  
+If rows are not preserved:  
+     UNSAFE  
+   
+ Else if improvement < 0%:  
+     UNSUCCESSFUL  
+   
+ Else if rows are preserved,  
+      index is used,  
+      and improvement >= 5%:  
+     SUCCESSFUL  
+   
+ Else:  
+     NEUTRAL  
+   
+Where median improvement is available, it is used preferentially; otherwise average improvement is used.  
+The threshold currently used for a successful recommendation is:  
+5%  
+   
+The decision layer does not rerun benchmark experiments. It evaluates already stored validation evidence.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OMQ2AABAAsSNhZscYahheJwqQgQU2QtIq6DIze3UGAMBf3Gu1VcfXEwAAXrseoqcEQXyAWBgAAAAASUVORK5CYII=)  
+   
+**23. M10 — Validation Results**  
+The current validation dataset contains:  
+23 benchmark experiments  
+ 22 distinct validated recommendations  
+   
+Current decision summary:  
+| | |  
+|-|-|  
+| **Status** | **Count** |   
+| SUCCESSFUL | 13 |   
+| NEUTRAL | 6 |   
+| UNSUCCESSFUL | 4 |   
+| UNSAFE | 0 |   
+   
+This corresponds to:  
+Success rate: 56.52%  
+   
+The results demonstrate that the recommendation engine does not automatically treat every candidate as beneficial.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANElEQVR4nO3OMQ0AIAwAwZIgBKnVgjN8dGDBABMhuZt+/JaZIyJmAADwi9VP1NMNAABu1AaU3AUhiyfJeAAAAABJRU5ErkJggg==)  
+   
+**24. M11 — Validation Analysis**  
+Validation analysis is implemented in:  
+collector/validation_analysis.py  
+   
+The module is read-only with respect to the validation results. It does not:  
+- execute benchmark queries;  
+- create indexes;  
+- modify database indexes.  
+It reads completed benchmark and recommendation records and calculates project-level evaluation metrics.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OQQmAABRAsSd49m4tA8nPaQJjWMGbCFuCLTOzV2cAAPzFvVZbdXw9AQDgtesBorcEPwOKyvQAAAAASUVORK5CYII=)  
+   
+**25. M11 — Overall Validation Metrics**  
+Current results:  
+Total experiments       : 23  
+ Successful              : 13  
+ Neutral                 : 6  
+ Unsuccessful            : 4  
+ Unsafe                  : 0  
+   
+Performance metrics:  
+Success rate            : 56.52%  
+ Index usage rate        : 78.26%  
+ Rows preserved rate     : 100.00%  
+ Plan change rate        : 100.00%  
+ Average improvement     : 33.19%  
+   
+These metrics describe the current validation dataset and should not be interpreted as universal performance guarantees.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANElEQVR4nO3OMQ0AIAwAwZIgBKn1gjJsdGLBABMhuZt+/JaZIyJmAADwi9VP1NMNAABu1AaU4gUeBSGW2wAAAABJRU5ErkJggg==)  
+**26. M11 — Performance by Validation Status**  
+Current results:  
+| | | | | |  
+|-|-|-|-|-|  
+| **Status** | **Count** | **Average Improvement** | **Maximum** | **Minimum** |   
+| SUCCESSFUL | 13 | 58.16% | 97.79% | 11.92% |   
+| NEUTRAL | 6 | 2.64% | 4.16% | 0.79% |   
+| UNSUCCESSFUL | 4 | -2.12% | -1.33% | -2.68% |   
+| UNSAFE | 0 | 0.00% | 0.00% | 0.00% |   
+   
+The results provide evidence that the validation layer can distinguish useful, low-benefit and negatively performing recommendations.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OMQ2AABAAsSNhwgJGkPcrHpnRgQU2QtIq6DIze3UGAMBf3Gu1VcfXEwAAXrseaJkELjbMzy0AAAAASUVORK5CYII=)  
+**27. M11 — Recommendation Quality**  
+Current recommendation-score analysis:  
+Average recommendation score       : 61.09  
+ Successful average score            : 66.92  
+ Neutral average score               : 58.33  
+ Unsuccessful average score          : 46.25  
+   
+Priority analysis:  
+High-priority recommendations       : 10  
+ High-priority successful             : 9  
+ High-priority success rate           : 90.00%  
+   
+The high-priority success rate is an observation from the current experimental dataset. It is not sufficient by itself to establish general predictive accuracy.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OMQ2AABAAsSPBCj5fFyM6mJHAjAU2QtIq6DIzW7UHAMBfnGt1V8fXEwAAXrsexOEF35f1aEgAAAAASUVORK5CYII=)  
+**28. M11 — Detailed Recommendation Evaluation**  
+The analysis now produces a row-level evaluation containing:  
+Benchmark  
+ Query profile  
+ Table  
+ Column  
+ Recommendation score  
+ Priority  
+ Measured improvement  
+ Index usage  
+ Plan change  
+ Validation status  
+   
+The detailed evaluation exposed several useful cases.  
+One important example is Q009:  
+products.category_id  
+ Score: 60  
+ Measured result: low/negative improvement in recorded experiments  
+   
+ order_items.product_id  
+ Score: 35  
+ Measured result: approximately 76% improvement in one validated experiment  
+   
+This demonstrates an important limitation of the current heuristic:  
+*Recommendation score is a prioritization heuristic and is not a guarantee of measured performance improvement.*  
+This finding provides a direct motivation for future improvements to the recommendation model.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANklEQVR4nO3OMQ2AABAAsSNBACP6MMH6NpGACyywEZJWQZeZ2aszAAD+4l6rrTq+ngAA8Nr1AL+6BElk4wV6AAAAAElFTkSuQmCC)  
+**29. M11 — Query-Level Validation Analysis**  
+Validation results are grouped by query profile.  
+The current analysis calculates:  
+number of recommendations  
+ successful recommendations  
+ neutral recommendations  
+ unsuccessful recommendations  
+ unsafe recommendations  
+ average improvement  
+ best improvement  
+   
+Examples from the current results:  
+| | | | | | |  
+|-|-|-|-|-|-|  
+| **Profile** | **Recommendations** | **Successful** | **Neutral** | **Unsuccessful** | **Avg Improvement** |   
+| 2 | 1 | 1 | 0 | 0 | 96.11% |   
+| 3 | 1 | 1 | 0 | 0 | 39.30% |   
+| 4 | 1 | 1 | 0 | 0 | 89.04% |   
+| 5 | 2 | 2 | 0 | 0 | 59.90% |   
+| 6 | 2 | 1 | 1 | 0 | 38.29% |   
+| 7 | 2 | 0 | 2 | 0 | 2.26% |   
+| 8 | 1 | 0 | 1 | 0 | 3.81% |   
+| 9 | 1 | 1 | 0 | 0 | 51.72% |   
+| 10 | 3 | 1 | 0 | 2 | 24.08% |   
+| 11 | 1 | 1 | 0 | 0 | 97.79% |   
+| 12 | 1 | 1 | 0 | 0 | 34.97% |   
+| 13 | 2 | 1 | 0 | 1 | 4.62% |   
+| 14 | 1 | 1 | 0 | 0 | 32.13% |   
+| 15 | 1 | 1 | 0 | 0 | 33.23% |   
+| 16 | 3 | 0 | 2 | 1 | 1.00% |   
+   
+This analysis shows that optimization benefit varies significantly by query and candidate index.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OQQmAABRAsSd4EKxgBjP+Asa0hxW8ibAl2DIzR3UFAMBf3Gu1VefXEwAAXtsfSqwDVbgKngwAAAAASUVORK5CYII=)  
+**30. M11 — Coverage and Low-Benefit Analysis**  
+The current coverage/low-benefit analysis distinguishes unique validated recommendations from benchmark experiments.  
+Current results:  
+Validated recommendations       : 22  
+ Positive-benefit experiments     : 19  
+ Low-benefit experiments          : 10  
+ Index-used low-benefit cases     : 5  
+ Index-not-used cases             : 5  
+   
+Rates:  
+Positive-benefit rate            : 82.61%  
+ Low-benefit rate                 : 43.48%  
+ Index-not-used rate              : 21.74%  
+   
+The terminology intentionally distinguishes **recommendations** from  **experiments**, because one recommendation can appear in more than one benchmark record.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANklEQVR4nO3OMQ2AABAAsSNBCkLfFDZwwIgHRiywEZJWQZeZ2ao9AAD+4lyruzq+ngAA8Nr1AOH0BedHjjlfAAAAAElFTkSuQmCC)  
+**31. Important Findings So Far**  
+The implementation has produced several findings that will be relevant to the final evaluation.  
+**31.1 Index recommendations can produce substantial improvements**  
+Several validated recommendations produced improvements greater than 70%, with the highest observed improvement approximately 97.79%.  
+**31.2 Not every recommendation is beneficial**  
+Four validation experiments were classified as unsuccessful.  
+Six were classified as neutral because the measured benefit did not meet the 5% threshold or did not satisfy all success conditions.  
+**31.3 Index usage does not automatically imply meaningful benefit**  
+An index can be selected by PostgreSQL while producing only a small improvement.  
+This is demonstrated by several low-benefit cases.  
+**31.4 A recommendation score is not equivalent to measured performance**  
+The Q009 experiments provide evidence that heuristic scores do not perfectly predict measured benefit.  
+This is an important limitation and a potential research direction.  
+**31.5 Experimental validation is necessary**  
+The current results support the original project design decision to validate recommendations through controlled BEFORE/AFTER experiments rather than relying only on heuristic scoring.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANklEQVR4nO3OQQmAABRAsSfYxZo/khWsYQLPJrCCNxG2BFtmZquOAAD4i3Ot7mr/egIAwGvXA4qjBdKlX6OKAAAAAElFTkSuQmCC)  
+**32. Testing Implemented So Far**  
+The project contains tests covering:  
+connection  
+ plan analyzer  
+ feature extractor  
+ query parser  
+ index candidate generator  
+ candidate diagnostics  
+ recommendation engine  
+ recommendation repository  
+ benchmark runner  
+ index validator  
+ recommendation integration  
+ full recommendation pipeline  
+ full benchmark  
+ validation decision  
+ benchmark integration  
+ validation evidence backfill  
+   
+The workload runner successfully executed all 15 controlled queries.  
+The candidate diagnostics completed successfully after correcting GROUP BY extraction.  
+The recommendation pipeline completed successfully and stored recommendations.  
+The validation suite completed successfully for the official recommendations.  
+The M11 analysis module currently executes successfully against the stored validation dataset.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OMQ2AABAAsSNhwgJWEPcbJpnRgQU2QtIq6DIze3UGAMBf3Gu1VcfXEwAAXrseaIkEMIPgIvAAAAAASUVORK5CYII=)  
+**33. Current Repository Structure**  
+The current repository contains:  
+intelligent-sql-query-profiler/  
+ │  
+ ├── .gitignore  
+ ├── README.md  
+ ├── requirements.txt  
+ │  
+ ├── collector/  
+ │   ├── __init__.py  
+ │   ├── benchmark_repository.py  
+ │   ├── benchmark_runner.py  
+ │   ├── feature_extractor.py  
+ │   ├── index_candidate_generator.py  
+ │   ├── index_validator.py  
+ │   ├── plan_analyzer.py  
+ │   ├── query_collector.py  
+ │   ├── query_parser.py  
+ │   ├── recommendation_engine.py  
+ │   ├── recommendation_repository.py  
+ │   ├── validation_analysis.py  
+ │   ├── validation_decision.py  
+ │   └── workload_runner.py  
+ │  
+ ├── config/  
+ │   ├── __init__.py  
+ │   └── database.py  
+ │  
+ ├── database/  
+ │   ├── schema.sql  
+ │   └── workload.sql  
+ │  
+ ├── docs/  
+ │   ├── experiments.md  
+ │   └── PROJECT_IMPLEMENTATION_LOG.md  
+ │  
+ └── tests/  
+     ├── __init__.py  
+     ├── backfill_validation_evidence.py  
+     ├── test_all_index_validations.py  
+     ├── test_benchmark_integration.py  
+     ├── test_benchmark_runner.py  
+     ├── test_candidate_diagnostics.py  
+     ├── test_connection.py  
+     ├── test_feature_extractor.py  
+     ├── test_full_benchmark.py  
+     ├── test_full_recommendation_pipeline.py  
+     ├── test_index_candidate_generator.py  
+     ├── test_index_validator.py  
+     ├── test_plan_analyzer.py  
+     ├── test_query_parser.py  
+     ├── test_recommendation_engine.py  
+     ├── test_recommendation_integration.py  
+     ├── test_recommendation_repository.py  
+     └── test_validation_decision.py  
+   
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANklEQVR4nO3OQQmAABRAsScYxpg/h5VMYARvRrCCNxG2BFtmZquOAAD4i3Ot7mr/egIAwGvXA224BcUMk6pDAAAAAElFTkSuQmCC)  
+**34. Git/GitHub Checkpoint**  
+A Git repository was initialized for the project.  
+The branch was renamed from:  
+master  
+   
+to:  
+main  
+   
+The GitHub remote is:  
+git@github.com:wol-98/intelligent-sql-query-profiler.git  
+   
+The initial project implementation through the M11 validation-analysis stage was committed and pushed to GitHub.  
+The .gitignore protects:  
+.env  
+ .venv/  
+ __pycache__/  
+ *.pyc  
+   
+This prevents database credentials, virtual-environment files and Python cache files from being committed.  
+This GitHub checkpoint serves as the stable baseline before the next development phase.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OMQ2AABAAsSNhYMMAKlD4OzrxgQU2QtIq6DIzR3UFAMBf3Gu1VefXEwAAXtsfSqADWz4G/HUAAAAASUVORK5CYII=)  
+**35. Current Implementation Status**  
+**Completed Core System**  
+The following functionality is operational:  
+PostgreSQL database  
+         ↓  
+ Controlled workload  
+         ↓  
+ Query collection  
+         ↓  
+ SQL parsing  
+         ↓  
+ Execution-plan analysis  
+        ↓  
+ Feature extraction  
+         ↓  
+ Index candidate generation  
+         ↓  
+ Explainable recommendation scoring  
+         ↓  
+ Controlled index validation  
+         ↓  
+ Benchmarking  
+         ↓  
+ Validation evidence  
+         ↓  
+ Validation decision  
+         ↓  
+ M11 evaluation  
+   
+The project therefore has a working end-to-end optimization prototype.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAM0lEQVR4nO3OMQ0AIAwAwdIgBKl1gjacsGCAiZDcTT9+q6oRETMAAPjF6ify6QYAADdyA9Y0AypN+bdfAAAAAElFTkSuQmCC)  
+**36. Current Limitations**  
+The current implementation is intentionally still a controlled research prototype.  
+**36.1 Heuristic recommendation model**  
+The recommendation score is rule-based and has not yet been trained or calibrated against a larger experimental dataset.  
+**36.2 Single-column candidate focus**  
+The current candidate generator primarily produces single-column B-tree candidates.  
+Composite-index generation has not yet been implemented.  
+**36.3 Controlled workload size**  
+The current workload consists of 15 queries and the current database uses a fixed synthetic dataset.  
+Larger workloads and multiple data scales have not yet been systematically evaluated.  
+**36.4 Limited query normalization**  
+The parser currently extracts structural metadata but does not yet provide a complete query-fingerprinting system.  
+**36.5 Dashboard**  
+The project plan includes a dashboard, but the complete Streamlit dashboard has not yet been integrated into the current repository baseline.  
+**36.6 Advanced statistical evaluation**  
+The current M11 analysis calculates descriptive metrics. A more comprehensive statistical analysis of repeated benchmark distributions is still planned.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OQQmAABRAsSfYxKK/kYXEkyk8WcGbCFuCLTOzVXsAAPzFuVZ3dXw9AQDgtesB/v8F8JQadPwAAAAASUVORK5CYII=)  
+**37. Planned Advanced Development**  
+The following features were identified in the original project scope as possible enhancements and are candidates for the next development phase.  
+**Priority 1 — Query Intelligence**  
+- query normalization;  
+- query fingerprinting;  
+- workload frequency analysis;  
+- query performance ranking;  
+- selectivity analysis;  
+- cardinality analysis;  
+- execution-plan anomaly detection.  
+**Priority 2 — Advanced Index Optimization**  
+- composite-index candidate generation;  
+- column-order evaluation for composite indexes;  
+- index redundancy detection;  
+- workload-level index recommendations;  
+- indexes affecting multiple queries;  
+- cost-aware recommendations.  
+**Priority 3 — Recommendation Intelligence**  
+- recommendation confidence;  
+- improved scoring;  
+- historical validation evidence;  
+- adaptive recommendation scoring;  
+- comparison between heuristic and data-driven models;  
+- optional machine-learning prediction of recommendation outcomes.  
+**Priority 4 — Experimental Evaluation**  
+- larger benchmark suites;  
+- multiple data sizes;  
+- repeated experiments;  
+- statistical significance analysis;  
+- performance distributions;  
+- recommendation precision;  
+- recommendation coverage;  
+- false-positive analysis;  
+- low-benefit analysis;  
+- index overhead analysis.  
+**Priority 5 — Product Layer**  
+- Streamlit dashboard;  
+- query explorer;  
+- recommendation explorer;  
+- benchmark visualization;  
+- execution-plan visualization;  
+- validation dashboard;  
+- experiment history;  
+- database insights;  
+- automated optimization reports.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANElEQVR4nO3OUQmAABBAsSeILQSjXgcrmkOs4J8IW4ItM7NXZwAA/MW1Vlt1fBwBAOC9+wEukwQ+V/SggAAAAABJRU5ErkJggg==)  
+**38. Proposed Next-Phase Architecture**  
+The extended architecture will evolve toward:  
+                         DATABASE  
+                             │  
+                             ▼  
+                   WORKLOAD COLLECTION  
+                             │  
+                             ▼  
+                    QUERY FINGERPRINT  
+                             │  
+                             ▼  
+                      SQL PARSING  
+                             │  
+                             ▼  
+                   QUERY PROFILING  
+                             │  
+           ┌─────────────────┼─────────────────┐  
+           ▼                 ▼                 ▼  
+     PLAN ANALYSIS     SELECTIVITY       CARDINALITY  
+           │                 │                 │  
+           └─────────────────┼─────────────────┘  
+                             ▼  
+                    PROBLEM DETECTION  
+                             │  
+              ┌──────────────┼──────────────┐  
+              ▼              ▼              ▼  
+        INDEX CANDIDATES  QUERY RANKING  ANOMALIES  
+              │              │              │  
+              └──────────────┼──────────────┘  
+                             ▼  
+                   RECOMMENDATION ENGINE  
+                             │  
+                 ┌───────────┼───────────┐  
+                 ▼           ▼           ▼  
+              SCORE      CONFIDENCE   COST/BENEFIT  
+                 │           │           │  
+                 └───────────┼───────────┘  
+                             ▼  
+                      VALIDATION  
+                             │  
+                             ▼  
+                      BENCHMARKING  
+                             │  
+                             ▼  
+                    DECISION ENGINE  
+                             │  
+                 ┌───────────┼───────────┐  
+                 ▼           ▼           ▼  
+             ANALYTICS   DASHBOARD     REPORTS  
+   
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OMQ2AABAAsSNhQAQ60PcrIhnxgQU2QtIq6DIze3UGAMBf3Gu1VcfXEwAAXrseS14EKxPCORkAAAAASUVORK5CYII=)  
+**39. Development Principle for the Next Phase**  
+The next phase will build on the existing working system rather than replacing it.  
+Each enhancement should:  
+1. have a clearly defined purpose;  
+2. be implemented as an isolated module where practical;  
+3. have a test;  
+4. be integrated with the existing pipeline;  
+5. be experimentally evaluated where applicable;  
+6. be documented;  
+7. be committed to Git.  
+The project will maintain a distinction between:  
+Planned  
+ Implemented  
+ Experimentally validated  
+ Future enhancement  
+   
+so that the final academic report remains accurate and reproducible.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OQQmAABRAsSfYxKK/kYXEkyk8WcGbCFuCLTOzVXsAAPzFuVZ3dXw9AQDgtesB/v8F8JQadPwAAAAASUVORK5CYII=)  
+**40. Current Project Baseline**  
+At the M11 checkpoint, the project has demonstrated:  
+15 controlled SQL queries  
+ 6 relational database tables  
+ ~286,100 synthetic records  
+ 23 validation experiments  
+ 22 distinct validated recommendations  
+ 13 successful experiments  
+ 6 neutral experiments  
+ 4 unsuccessful experiments  
+ 0 unsafe experiments  
+ 33.19% average measured improvement  
+ 78.26% index usage  
+ 100% rows preserved  
+ 100% plans changed  
+   
+These results form the current experimental baseline.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OMQ2AABAAsSNhwgJWEPcbJpnRgQU2QtIq6DIze3UGAMBf3Gu1VcfXEwAAXrseaIkEMIPgIvAAAAAASUVORK5CYII=)  
+**41. Definition of the Current Prototype**  
+The current prototype can be defined as:  
+*A PostgreSQL-based SQL performance analysis system that collects controlled query execution information, parses SQL structure, analyzes * *execution plans, extracts optimization features, generates explainable index candidates, validates candidate indexes through controlled BEFORE/AFTER experiments, stores validation evidence, and evaluates recommendation outcomes using project-level metrics.*  
+This definition describes functionality that has actually been implemented at the current M11 checkpoint.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAMUlEQVR4nO3WAQkAIBAEsBPMYs4PZhMDWMAA5njYUmxU1UqyAwBAF2cmeZE4AIBO7gentgXapSWpbgAAAABJRU5ErkJggg==)  
+**42. Next Development Checkpoint**  
+The next development phase will begin only after the M11 baseline has been preserved in GitHub.  
+The proposed sequence is:  
+M11 Git checkpoint  
+         ↓  
+ Query fingerprinting  
+         ↓  
+ Selectivity analysis  
+         ↓  
+ Cardinality / plan anomaly analysis  
+         ↓  
+ Composite-index generation  
+         ↓  
+ Workload-level optimization  
+         ↓  
+ Cost-benefit recommendation model  
+         ↓  
+ Recommendation confidence  
+         ↓  
+ Expanded experimental evaluation  
+         ↓  
+ Statistical analysis  
+         ↓  
+ Dashboard integration  
+         ↓  
+ Experiment history  
+         ↓  
+ Optional ML/adaptive recommendation study  
+         ↓  
+ Final integrated prototype  
+   
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OQQmAABRAsSd49m4v6wg/pwmMYQVvImwJtszMXp0BAPAX91pt1fH1BACA164Hoq8EQMMPmF8AAAAASUVORK5CYII=)  
+   
+**43. Documentation Principle**  
+This implementation log should be updated after each major milestone.  
+Each future milestone should record:  
+Date  
+ Milestone  
+ Objective  
+ Implementation  
+ Files changed  
+ Tests performed  
+ Experimental results  
+ Problems encountered  
+ Resolution  
+ Git commit  
+ Next milestone  
+   
+This will maintain a continuous project timeline from the original proposal through the final MSc prototype.  
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANElEQVR4nO3OQQmAABRAsSdYxKY/jbnMIJ7FCt5E2BJsmZmt2gMA4C+Otbqr8+sJAACvXQ85TgYRMv3/cwAAAABJRU5ErkJggg==)  
+**End of M11 Implementation Baseline**  

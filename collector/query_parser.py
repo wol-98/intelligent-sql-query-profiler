@@ -3,11 +3,49 @@ SQL Query Metadata Extractor
 ----------------------------
 Extracts tables, aliases, WHERE columns, JOIN columns,
 ORDER BY columns, and GROUP BY columns from SQL queries.
+It also includes query fingerprinting to group similar queries.
 
 This module does not execute SQL.
 """
 
 import re
+import hashlib
+
+
+# =========================================================
+# QUERY FINGERPRINTING
+# =========================================================
+
+class QueryFingerprinter:
+    @staticmethod
+    def normalize_query(sql_query: str) -> str:
+        """
+        Strips literals (strings, numbers) and normalizes whitespace/case
+        to create a generic query template.
+        """
+        # 1. Remove inline and multiline SQL comments
+        sql = re.sub(r'--.*?\n|/\*.*?\*/', '', sql_query, flags=re.DOTALL)
+
+        # 2. Replace string literals (e.g., 'Completed') with a placeholder '?'
+        sql = re.sub(r"'.*?'", "'?'", sql)
+
+        # 3. Replace numeric literals (e.g., 500, 10) with a placeholder ?
+        sql = re.sub(r'\b\d+\.?\d*\b', '?', sql)
+
+        # 4. Normalize whitespace and convert to uppercase for strict consistency
+        sql = ' '.join(sql.split()).upper()
+
+        return sql
+
+    @staticmethod
+    def generate_fingerprint(sql_query: str) -> tuple[str, str]:
+        """
+        Returns the SHA-256 hash fingerprint and the normalized SQL template.
+        """
+        normalized_sql = QueryFingerprinter.normalize_query(sql_query)
+        fingerprint_hash = hashlib.sha256(normalized_sql.encode('utf-8')).hexdigest()
+
+        return fingerprint_hash, normalized_sql
 
 
 # =========================================================
@@ -21,18 +59,23 @@ def parse_query(query: str) -> dict:
     Returns
     -------
     dict
-        Structured SQL metadata.
+        Structured SQL metadata, now including fingerprint hash.
     """
 
     normalized_query = " ".join(
         query.strip().split()
     )
 
+    # Generate fingerprint and template
+    fingerprint, normalized_template = QueryFingerprinter.generate_fingerprint(normalized_query)
+
     metadata = {
         "query": normalized_query,
         "query_type": get_query_type(
             normalized_query
         ),
+        "fingerprint": fingerprint,
+        "normalized_template": normalized_template,
         "tables": [],
         "aliases": {},
         "where_columns": [],
@@ -455,6 +498,16 @@ def print_query_metadata(metadata: dict):
     print(
         f"Query type          : "
         f"{metadata['query_type']}"
+    )
+
+    print(
+        f"Fingerprint Hash    : "
+        f"{metadata['fingerprint']}"
+    )
+
+    print(
+        f"Normalized Template : "
+        f"{metadata['normalized_template']}"
     )
 
     print(
