@@ -15,7 +15,10 @@ The generator supports:
     - Existing-index detection
     - Composite-index prefix coverage detection
     - Safe column-reference resolution
+    - Candidate-quality metadata
+    - Source-aware candidate classification
 """
+
 
 from config.database import get_connection
 
@@ -49,10 +52,6 @@ def resolve_column_reference(
 
     # -----------------------------------------------------
     # Qualified column reference
-    #
-    # Example:
-    #     p.category_id
-    #     oi.product_id
     # -----------------------------------------------------
 
     if "." in column_reference:
@@ -71,18 +70,13 @@ def resolve_column_reference(
 
     # -----------------------------------------------------
     # Unqualified column reference
-    #
-    # If exactly one table exists in the query,
-    # the column can safely be resolved to that table.
     # -----------------------------------------------------
 
     if len(tables) == 1:
         return tables[0], column_reference
 
     # -----------------------------------------------------
-    # Backward compatibility:
-    # If aliases contain exactly one table,
-    # use that table.
+    # Backward compatibility
     # -----------------------------------------------------
 
     if len(aliases) == 1:
@@ -94,9 +88,7 @@ def resolve_column_reference(
         return table, column_reference
 
     # -----------------------------------------------------
-    # Ambiguous column reference.
-    #
-    # Do not guess the table.
+    # Ambiguous reference
     # -----------------------------------------------------
 
     return None, column_reference
@@ -188,11 +180,6 @@ def get_indexed_columns(
     ON public.orders USING btree (customer_id, order_date)
 
         -> ["customer_id", "order_date"]
-
-    Returns
-    -------
-    list of str
-        Indexed columns in their PostgreSQL index order.
     """
 
     if not index_definition:
@@ -260,19 +247,15 @@ def normalize_candidate_columns(
     Convert a candidate column representation into
     an ordered list of column names.
 
-    Accepted input formats
-    -----------------------
-    "customer_id"
-        -> ["customer_id"]
+    Accepted input formats:
 
-    "customer_id, order_date"
-        -> ["customer_id", "order_date"]
+        "customer_id"
 
-    ["customer_id", "order_date"]
-        -> ["customer_id", "order_date"]
+        "customer_id, order_date"
 
-    ("customer_id", "order_date")
-        -> ["customer_id", "order_date"]
+        ["customer_id", "order_date"]
+
+        ("customer_id", "order_date")
 
     Duplicate columns are removed while preserving order.
     """
@@ -282,16 +265,19 @@ def normalize_candidate_columns(
 
     # -----------------------------------------------------
     # Support list/tuple input.
-    #
-    # This is important because composite candidate
-    # generation naturally produces a list of columns.
     # -----------------------------------------------------
 
-    if isinstance(column_name, (list, tuple)):
+    if isinstance(
+        column_name,
+        (list, tuple)
+    ):
 
         raw_columns = column_name
 
-    elif isinstance(column_name, str):
+    elif isinstance(
+        column_name,
+        str
+    ):
 
         raw_columns = column_name.split(",")
 
@@ -335,40 +321,6 @@ def classify_candidate_relationship(
         - "candidate_prefix"
         - "existing_prefix"
         - "different"
-
-    Examples
-    --------
-    Candidate:
-        (customer_id, order_date)
-
-    Existing:
-        (customer_id, order_date)
-
-        -> exact_duplicate
-
-    Candidate:
-        (customer_id, order_date)
-
-    Existing:
-        (customer_id, order_date, status)
-
-        -> candidate_prefix
-
-    Candidate:
-        (customer_id, order_date, status)
-
-    Existing:
-        (customer_id, order_date)
-
-        -> existing_prefix
-
-    Candidate:
-        (customer_id, order_date)
-
-    Existing:
-        (order_date, customer_id)
-
-        -> different
     """
 
     candidate = normalize_candidate_columns(
@@ -390,8 +342,7 @@ def classify_candidate_relationship(
         return "exact_duplicate"
 
     # -----------------------------------------------------
-    # Candidate is the leftmost prefix of the existing
-    # candidate.
+    # Candidate is a leftmost prefix of existing.
     # -----------------------------------------------------
 
     if (
@@ -401,8 +352,7 @@ def classify_candidate_relationship(
         return "candidate_prefix"
 
     # -----------------------------------------------------
-    # Existing candidate is the leftmost prefix of the
-    # new candidate.
+    # Existing is a leftmost prefix of candidate.
     # -----------------------------------------------------
 
     if (
@@ -429,20 +379,6 @@ def candidate_is_redundant(
 
     Prefix relationships are intentionally NOT treated as
     automatic redundancy.
-
-    Example
-    -------
-    Existing candidate:
-        (customer_id, order_date)
-
-    New candidate:
-        (customer_id, order_date, order_id)
-
-    These candidates have a prefix relationship, but the
-    longer candidate may support a different query pattern.
-
-    Therefore, only an exact duplicate is considered
-    redundant by this function.
     """
 
     if not table_name:
@@ -485,26 +421,8 @@ def column_has_index(
 ):
     """
     Check whether the specified column is already
-    covered by an existing PostgreSQL B-tree index.
-
-    For composite indexes, only the leftmost indexed
-    column is treated as directly covered for a
-    single-column candidate.
-
-    Examples
-    --------
-    (customer_id)
-        -> customer_id is covered
-
-    (customer_id, order_date)
-        -> customer_id is covered
-        -> order_date is not treated as independently covered
-
-    Returns
-    -------
-    bool
-        True when the column is the leftmost column
-        of an existing index.
+    covered by the leftmost position of an existing
+    PostgreSQL index.
     """
 
     if not table_name or not column_name:
@@ -535,6 +453,122 @@ def column_has_index(
 
 
 # =========================================================
+# DETERMINE CANDIDATE TYPE
+# =========================================================
+
+def determine_candidate_type(
+    column_names
+):
+    """
+    Determine whether a candidate is single-column
+    or composite.
+    """
+
+    columns = normalize_candidate_columns(
+        column_names
+    )
+
+    if len(columns) >= 2:
+        return "composite"
+
+    if len(columns) == 1:
+        return "single"
+
+    return "unknown"
+
+
+# =========================================================
+# DETERMINE SOURCE TYPE
+# =========================================================
+
+def determine_source_type(
+    source
+):
+    """
+    Classify the query feature that generated a candidate.
+
+    Returns
+    -------
+    str
+        One of:
+
+        - "where"
+        - "join"
+        - "order_by"
+        - "group_by"
+        - "mixed"
+        - "unknown"
+    """
+
+    if not source:
+        return "unknown"
+
+    source_text = str(source).lower()
+
+    source_types = []
+
+    if "where" in source_text:
+        source_types.append("where")
+
+    if "filter" in source_text:
+        source_types.append("where")
+
+    if "join" in source_text:
+        source_types.append("join")
+
+    if "order" in source_text:
+        source_types.append("order_by")
+
+    if "group" in source_text:
+        source_types.append("group_by")
+
+    # -----------------------------------------------------
+    # Remove duplicates while preserving order.
+    # -----------------------------------------------------
+
+    source_types = list(
+        dict.fromkeys(source_types)
+    )
+
+    if len(source_types) == 1:
+        return source_types[0]
+
+    if len(source_types) > 1:
+        return "mixed"
+
+    return "unknown"
+
+
+# =========================================================
+# BUILD CANDIDATE METADATA
+# =========================================================
+
+def build_candidate_metadata(
+    column_names,
+    source_type
+):
+    """
+    Build descriptive metadata for a generated candidate.
+
+    This metadata describes how the candidate was generated.
+    It does NOT represent recommendation score or benchmark
+    effectiveness.
+    """
+
+    columns = normalize_candidate_columns(
+        column_names
+    )
+
+    return {
+        "candidate_type": determine_candidate_type(
+            columns
+        ),
+        "source_type": source_type,
+        "column_count": len(columns),
+    }
+
+
+# =========================================================
 # ADD SINGLE-COLUMN CANDIDATE
 # =========================================================
 
@@ -544,7 +578,8 @@ def add_candidate_if_new(
     column_name,
     index_type,
     reason,
-    source
+    source,
+    source_type=None
 ):
     """
     Add a single-column candidate if:
@@ -552,6 +587,9 @@ def add_candidate_if_new(
         1. table/column is valid
         2. it isn't already present in candidates
         3. it isn't already indexed
+
+    Additional candidate metadata describes how the
+    candidate was generated.
     """
 
     if not table_name:
@@ -561,8 +599,7 @@ def add_candidate_if_new(
         return
 
     # -----------------------------------------------------
-    # Avoid duplicate candidates generated from
-    # multiple query features.
+    # Avoid duplicate candidates.
     # -----------------------------------------------------
 
     for candidate in candidates:
@@ -583,6 +620,16 @@ def add_candidate_if_new(
     ):
         return
 
+    if source_type is None:
+        source_type = determine_source_type(
+            reason
+        )
+
+    metadata = build_candidate_metadata(
+        column_name,
+        source_type
+    )
+
     candidates.append(
         {
             "table_name": table_name,
@@ -590,6 +637,7 @@ def add_candidate_if_new(
             "index_type": index_type,
             "reason": reason,
             "source": source,
+            **metadata,
         }
     )
 
@@ -604,7 +652,8 @@ def add_composite_candidate_if_new(
     column_names,
     index_type,
     reason,
-    source
+    source,
+    source_type=None
 ):
     """
     Add a composite index candidate when:
@@ -616,10 +665,7 @@ def add_composite_candidate_if_new(
 
     Existing composite indexes are considered covering when
     the candidate columns match the leftmost columns of the
-    existing B-tree index.
-
-    Candidate order is preserved because index column order
-    affects PostgreSQL query planning.
+    existing index.
     """
 
     if not table_name:
@@ -629,10 +675,7 @@ def add_composite_candidate_if_new(
         return
 
     # -----------------------------------------------------
-    # Normalize the candidate columns.
-    #
-    # normalize_candidate_columns() accepts both strings
-    # and list/tuple representations.
+    # Normalize candidate columns.
     # -----------------------------------------------------
 
     unique_columns = normalize_candidate_columns(
@@ -651,7 +694,7 @@ def add_composite_candidate_if_new(
     )
 
     # -----------------------------------------------------
-    # Avoid exact duplicate composite candidates.
+    # Avoid exact duplicate candidates.
     # -----------------------------------------------------
 
     if candidate_is_redundant(
@@ -689,15 +732,7 @@ def add_composite_candidate_if_new(
         )
 
         # -------------------------------------------------
-        # Exact duplicate:
-        #
-        # Existing:
-        #     (customer_id, order_date)
-        #
-        # Candidate:
-        #     (customer_id, order_date)
-        #
-        # No new index is required.
+        # Exact duplicate.
         # -------------------------------------------------
 
         if relationship == "exact_duplicate":
@@ -706,19 +741,27 @@ def add_composite_candidate_if_new(
         # -------------------------------------------------
         # Candidate is already covered by the leftmost
         # prefix of an existing index.
-        #
-        # Existing:
-        #     (customer_id, order_date, status)
-        #
-        # Candidate:
-        #     (customer_id, order_date)
         # -------------------------------------------------
 
         if relationship == "candidate_prefix":
             return
 
     # -----------------------------------------------------
-    # Add the new composite candidate.
+    # Determine metadata.
+    # -----------------------------------------------------
+
+    if source_type is None:
+        source_type = determine_source_type(
+            reason
+        )
+
+    metadata = build_candidate_metadata(
+        unique_columns,
+        source_type
+    )
+
+    # -----------------------------------------------------
+    # Add candidate.
     # -----------------------------------------------------
 
     candidates.append(
@@ -728,6 +771,7 @@ def add_composite_candidate_if_new(
             "index_type": index_type,
             "reason": reason,
             "source": source,
+            **metadata,
         }
     )
 
@@ -784,7 +828,7 @@ def generate_composite_candidates(
             )
 
             # -------------------------------------------------
-            # Do not guess when the table cannot be resolved.
+            # Do not guess unresolved references.
             # -------------------------------------------------
 
             if not table_name or not column_name:
@@ -801,7 +845,7 @@ def generate_composite_candidates(
                 )
 
     # -----------------------------------------------------
-    # Filtering columns have highest priority.
+    # WHERE columns have highest priority.
     # -----------------------------------------------------
 
     collect_columns(
@@ -837,6 +881,87 @@ def generate_composite_candidates(
 
 
 # =========================================================
+# DETERMINE COMPOSITE SOURCE TYPE
+# =========================================================
+
+def determine_composite_source_type(
+    query_metadata,
+    column_names
+):
+    """
+    Determine which query features contributed to a
+    composite candidate.
+
+    This is descriptive metadata only.
+    """
+
+    query_metadata = query_metadata or {}
+
+    normalized_columns = normalize_candidate_columns(
+        column_names
+    )
+
+    if not normalized_columns:
+        return "unknown"
+
+    contributing_sources = []
+
+    feature_groups = (
+        (
+            "where_columns",
+            "where"
+        ),
+        (
+            "order_by_columns",
+            "order_by"
+        ),
+        (
+            "group_by_columns",
+            "group_by"
+        ),
+    )
+
+    for feature_key, source_type in feature_groups:
+
+        references = query_metadata.get(
+            feature_key,
+            []
+        )
+
+        for reference in references:
+
+            _, column_name = resolve_column_reference(
+                reference,
+                query_metadata.get(
+                    "aliases",
+                    {}
+                ),
+                query_metadata.get(
+                    "tables",
+                    []
+                )
+            )
+
+            if column_name in normalized_columns:
+                contributing_sources.append(
+                    source_type
+                )
+                break
+
+    contributing_sources = list(
+        dict.fromkeys(contributing_sources)
+    )
+
+    if len(contributing_sources) == 1:
+        return contributing_sources[0]
+
+    if len(contributing_sources) > 1:
+        return "mixed"
+
+    return "unknown"
+
+
+# =========================================================
 # GENERATE CANDIDATES
 # =========================================================
 
@@ -857,9 +982,11 @@ def generate_index_candidates(
         - Composite filter/order patterns
     """
 
-    # features is currently retained as part of the
-    # public API for compatibility with the recommendation
-    # pipeline and future plan-aware candidate generation.
+    # -----------------------------------------------------
+    # Retained for compatibility with the existing public
+    # API and future plan-aware candidate generation.
+    # -----------------------------------------------------
+
     _ = features
 
     query_metadata = query_metadata or {}
@@ -901,7 +1028,8 @@ def generate_index_candidates(
             column_name,
             "B-tree",
             "Filter condition",
-            column_reference
+            column_reference,
+            source_type="where"
         )
 
     # -----------------------------------------------------
@@ -929,7 +1057,8 @@ def generate_index_candidates(
             column_name,
             "B-tree",
             "Join condition",
-            column_reference
+            column_reference,
+            source_type="join"
         )
 
     # -----------------------------------------------------
@@ -957,7 +1086,8 @@ def generate_index_candidates(
             column_name,
             "B-tree",
             "ORDER BY",
-            column_reference
+            column_reference,
+            source_type="order_by"
         )
 
     # -----------------------------------------------------
@@ -985,7 +1115,8 @@ def generate_index_candidates(
             column_name,
             "B-tree",
             "GROUP BY",
-            column_reference
+            column_reference,
+            source_type="group_by"
         )
 
     # -----------------------------------------------------
@@ -1006,13 +1137,19 @@ def generate_index_candidates(
             column_names
         )
 
+        source_type = determine_composite_source_type(
+            query_metadata,
+            column_names
+        )
+
         add_composite_candidate_if_new(
             candidates,
             table_name,
             column_names,
             "B-tree",
             "Composite filter/order pattern",
-            source
+            source,
+            source_type=source_type
         )
 
     return candidates
@@ -1051,28 +1188,43 @@ def print_candidates(
         )
 
         print(
-            f"  Table       : "
+            f"  Table           : "
             f"{candidate['table_name']}"
         )
 
         print(
-            f"  Column      : "
+            f"  Column          : "
             f"{candidate['column_name']}"
         )
 
         print(
-            f"  Type        : "
+            f"  Type            : "
             f"{candidate['index_type']}"
         )
 
         print(
-            f"  Reason      : "
+            f"  Reason          : "
             f"{candidate['reason']}"
         )
 
         print(
-            f"  Source      : "
+            f"  Source          : "
             f"{candidate['source']}"
+        )
+
+        print(
+            f"  Candidate Type  : "
+            f"{candidate.get('candidate_type', 'unknown')}"
+        )
+
+        print(
+            f"  Source Type     : "
+            f"{candidate.get('source_type', 'unknown')}"
+        )
+
+        print(
+            f"  Column Count    : "
+            f"{candidate.get('column_count', 0)}"
         )
 
     print("=" * 70)
