@@ -1150,3 +1150,298 @@ Date
 This will maintain a continuous project timeline from the original proposal through the final MSc prototype.  
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANElEQVR4nO3OQQmAABRAsSdYxKY/jbnMIJ7FCt5E2BJsmZmt2gMA4C+Otbqr8+sJAACvXQ85TgYRMv3/cwAAAABJRU5ErkJggg==)  
 **End of M11 Implementation Baseline**  
+**44. M14.1 Recommendation–Workload–Validation Analytical Dataset**
+
+Date: 17 September 2026
+
+Milestone: M14.1 – Recommendation–Workload–Validation Analytical Dataset
+
+Objective:
+Create an analytical dataset linking recommendation records, query-profile information, workload characteristics, fingerprints/templates, and experimentally observed benchmark outcomes.
+
+Implementation:
+A dedicated analytical module was added to construct a recommendation evaluation dataset. The module preserves multiple benchmark observations for the same recommendation and does not modify recommendation scores, benchmark records, or database state.
+
+The dataset combines:
+- recommendation information;
+- query profile information;
+- query fingerprints and templates;
+- workload-level information;
+- benchmark validation evidence;
+- evaluation improvement metrics.
+
+Evaluation metric precedence:
+1. stored benchmark median improvement when available;
+2. benchmark average improvement when the stored median is unavailable.
+
+No missing benchmark median values were fabricated.
+
+Verified results:
+- Dataset rows: 25
+- Unique recommendations: 24
+- Unique benchmark observations: 23
+- Unique fingerprints: 15
+- Validated rows: 23
+- Workload-matched rows: 25
+- Rows without benchmark evidence: 2
+- Rows with evaluation metric: 23
+
+Files added:
+- collector/recommendation_quality_analyzer.py
+- tests/test_recommendation_quality_analyzer.py
+
+Tests:
+- M14.1 tests: 18/18 passed
+- Full project suite at the subsequent M14 checkpoint: 106/106 passed
+
+Experimental status:
+Implemented and analytically validated.
+
+Git commit:
+Pending final M14 Git checkpoint.
+
+Next milestone:
+M14.2 Recommendation Quality and Workload-Outcome Analysis.
+
+
+**45. M14.2 Recommendation Quality & Workload-Outcome Analysis**
+
+Date: 17 September 2026
+
+Milestone: M14.2 – Recommendation Quality & Workload-Outcome Analysis
+
+Objective:
+Evaluate the relationship between recommendation scores, workload characteristics, and experimentally observed index-performance outcomes.
+
+Implementation:
+A dedicated analytical module was added to calculate descriptive recommendation-quality metrics, score/outcome relationships, workload/outcome relationships, recommendation-priority outcomes, workload-priority outcomes, and validation-result distributions.
+
+The analysis uses the experimentally observed evaluation improvement values from M14.1 and does not modify the recommendation scoring model.
+
+Verified results:
+- Evaluated observations: 23
+- Successful: 13
+- Neutral: 6
+- Unsuccessful: 4
+- Unsafe: 0
+- Overall success rate: 56.52%
+- Average improvement: 33.19%
+- Median improvement across evaluation observations: 23.17%
+- Low-benefit outcomes: 6
+- Negative-benefit outcomes: 4
+- Index used: 18
+- Index not used: 5
+- Rows preserved: 23/23 (100%)
+
+Observed relationships:
+- Recommendation score vs improvement, Pearson: 0.232
+- Recommendation score vs improvement, Spearman: 0.341
+- Workload execution-time share vs improvement, Pearson: -0.102
+- Workload execution-time share vs improvement, Spearman: -0.448
+
+Recommendation-priority results:
+- High-priority observations: 10
+- High-priority successful observations: 9
+- High-priority success rate: 90.00%
+
+Workload-priority results:
+- Critical workload observations: 3
+- Critical workload successful observations: 1
+- Critical workload success rate: 33.33%
+
+Interpretation:
+The original recommendation score showed a positive but limited association with observed improvement in the current experimental dataset. Workload execution-time share did not show a direct positive association with measured index improvement. The results indicate that workload importance and index effectiveness are distinct analytical dimensions.
+
+The findings support retaining empirical validation as a necessary component of the prototype rather than treating heuristic recommendation scores or workload cost as proof of index benefit.
+
+Files added:
+- collector/recommendation_quality_analysis.py
+- tests/test_recommendation_quality_analysis.py
+
+Tests:
+- M14.2 tests: 13/13 passed
+- Full project suite after integration: 106/106 passed
+
+Experimental status:
+Implemented and analytically validated.
+
+Git commit:
+Pending final M14 Git checkpoint.
+
+Next milestone:
+M14.3 Score-Only vs Workload-Aware Recommendation Prioritization.
+
+
+**46. M14.3 Score-Only vs Workload-Aware Recommendation Prioritization**
+
+Date: 17 September 2026
+
+Milestone: M14.3 – Recommendation Prioritization Comparison
+
+Objective:
+Compare prioritization based solely on the existing recommendation score with prioritization incorporating workload importance.
+
+Strategy A:
+Existing recommendation score only.
+
+Strategy B:
+Workload priority, execution-time share, then the original recommendation score.
+
+Implementation:
+A dedicated analytical comparison module was implemented to produce both rankings using the same evaluated observations.
+
+A methodological review identified outcome leakage in the initial ranking implementation because validation status and observed improvement had been used as ranking tie-breakers.
+
+Resolution:
+The ranking functions were corrected so that validation status and observed improvement are excluded from rank assignment.
+
+The final ranking rules are:
+
+Score-only:
+1. recommendation score;
+2. recommendation ID as deterministic tie-breaker.
+
+Workload-aware:
+1. workload priority;
+2. execution-time share;
+3. original recommendation score;
+4. recommendation ID as deterministic tie-breaker.
+
+Validation outcomes are used only after ranking to evaluate the resulting prioritization strategies.
+
+Verified results:
+- Evaluated observations: 23
+- Pearson rank correlation: -0.210
+- Spearman rank correlation: -0.210
+- Observations moved upward: 10
+- Observations moved downward: 12
+- Unchanged: 1
+- Average absolute rank shift: 9.22
+- Maximum absolute rank shift: 16
+
+Top-K comparison:
+
+Top-3:
+- Score-only: 2 successful, 66.67% success rate, 1 neutral, 0 unsuccessful
+- Workload-aware: 1 successful, 33.33% success rate, 0 neutral, 2 unsuccessful
+
+Top-5:
+- Score-only: 4 successful, 80.00% success rate, 1 neutral, 0 unsuccessful
+- Workload-aware: 2 successful, 40.00% success rate, 1 neutral, 2 unsuccessful
+
+Top-10:
+- Score-only: 9 successful, 90.00% success rate, 1 neutral, 0 unsuccessful
+- Workload-aware: 4 successful, 40.00% success rate, 2 neutral, 4 unsuccessful
+
+Critical workload placement:
+- Critical observations: 3
+- Score-only ranks: 13, 14, 17
+- Workload-aware ranks: 1, 2, 3
+- Workload-aware Top-3 placement: 3/3
+- Score-only Top-3 placement: 0/3
+
+Interpretation:
+The workload-aware strategy changes prioritization substantially and places all three Critical-workload observations in its Top-3. However, the current validation observations do not demonstrate that workload-aware prioritization produces greater index effectiveness. The comparison therefore distinguishes workload prioritization from empirical index-performance effectiveness rather than establishing universal superiority of either strategy.
+
+Files added:
+- collector/recommendation_prioritization_comparison.py
+- tests/test_recommendation_prioritization_comparison.py
+
+Tests:
+- M14.3 tests: 9/9 passed
+
+Experimental status:
+Implemented, methodologically corrected, and experimentally evaluated.
+
+Git commit:
+Pending final M14 Git checkpoint.
+
+Next milestone:
+M14.4 Integrated Research Evaluation Report.
+
+
+**47. M14.4 Integrated Research Evaluation Report**
+
+Date: 17 September 2026
+
+Milestone: M14.4 – Integrated Research Evaluation
+
+Objective:
+Integrate the M14.1 analytical dataset, M14.2 recommendation-quality analysis, workload analysis, and M14.3 prioritization comparison into a consolidated research evaluation report.
+
+Implementation:
+A dedicated reporting module was added to combine the analytical outputs into a reproducible integrated evaluation.
+
+The report contains:
+- experimental summary;
+- score/workload relationships;
+- score-only versus workload-aware comparison;
+- Critical-workload placement;
+- research interpretation;
+- methodological limitations.
+
+The report explicitly distinguishes descriptive observations from general conclusions and records limitations concerning sample size, repeated benchmark observations, unavailable stored benchmark median fields, workload importance, PostgreSQL planner behavior, hardware/environment, cache state, query mix, and benchmark protocol.
+
+Verified results:
+- Evaluated observations: 23
+- Successful: 13
+- Neutral: 6
+- Unsuccessful: 4
+- Overall success rate: 56.52%
+- Average improvement: 33.19%
+- Median improvement: 23.17%
+- Score vs improvement, Pearson: 0.232
+- Score vs improvement, Spearman: 0.341
+- Time share vs improvement, Pearson: -0.102
+- Time share vs improvement, Spearman: -0.448
+- M14.3 ranking Spearman correlation: -0.210
+- Critical workload observations: 3
+- Workload-aware Critical Top-3 placement: 3/3
+- Score-only Critical Top-3 placement: 0/3
+
+Tests:
+- M14.4 tests: 7/7 passed
+- Complete project test suite: 106/106 passed
+
+Final M14 status:
+INTEGRATED ANALYTICAL EVALUATION COMPLETE
+
+Files added:
+- collector/research_evaluation_report.py
+- tests/test_research_evaluation_report.py
+
+Experimental status:
+Implemented, integrated, tested, and experimentally evaluated.
+
+Git commit:
+Pending final M14 Git checkpoint.
+
+Next milestone:
+Final M14 Git review, implementation-log update verification, commit, and push.
+
+
+**48. M14 Verification Checkpoint**
+
+Date: 17 September 2026
+
+The complete project test suite was executed after the M14 implementation and methodological correction.
+
+Command:
+python -m unittest discover -s tests -p "test_*.py"
+
+Result:
+106 tests run
+106 tests passed
+0 failures
+0 errors
+
+M14.3:
+9/9 tests passed.
+
+M14.4:
+7/7 tests passed.
+
+The project is therefore at a verified M14 analytical checkpoint. No database modification was introduced by the M14 analytical modules.
+
+Git commit:
+Pending.
