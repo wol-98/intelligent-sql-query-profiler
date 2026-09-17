@@ -68,7 +68,7 @@ def generate_recommendations(
     # -------------------------------------------------
 
     candidates = generate_index_candidates(
-        query_text,
+        features,
         query_metadata
     )
 
