@@ -150,42 +150,141 @@ def get_existing_indexes(
 
         if connection:
             connection.close()
+# =========================================================
+# PARSE INDEXED COLUMNS
+# =========================================================
 
+def get_indexed_columns(
+    index_definition
+):
+    """
+    Extract indexed column names from a PostgreSQL
+    index definition.
+
+    Examples
+    --------
+    CREATE UNIQUE INDEX customers_pkey
+    ON public.customers USING btree (customer_id)
+
+    -> ["customer_id"]
+
+    CREATE INDEX idx_orders_customer_date
+    ON public.orders USING btree (customer_id, order_date)
+
+    -> ["customer_id", "order_date"]
+
+    Returns
+    -------
+    list of str
+        Indexed columns in their PostgreSQL index order.
+    """
+
+    if not index_definition:
+        return []
+
+    try:
+        opening_parenthesis = (
+            index_definition.rfind("(")
+        )
+
+        closing_parenthesis = (
+            index_definition.rfind(")")
+        )
+
+        if (
+            opening_parenthesis == -1
+            or closing_parenthesis == -1
+            or closing_parenthesis <= opening_parenthesis
+        ):
+            return []
+
+        column_section = index_definition[
+            opening_parenthesis + 1:
+            closing_parenthesis
+        ]
+
+        columns = []
+
+        for column in column_section.split(","):
+
+            column = column.strip()
+
+            if not column:
+                continue
+
+            # Remove optional PostgreSQL identifier quotes.
+            if (
+                len(column) >= 2
+                and column[0] == '"'
+                and column[-1] == '"'
+            ):
+                column = column[1:-1]
+
+            columns.append(column)
+
+        return columns
+
+    except (AttributeError, TypeError):
+        return []
 
 # =========================================================
 # CHECK WHETHER COLUMN IS ALREADY INDEXED
 # =========================================================
-
 def column_has_index(
     table_name,
     column_name
 ):
     """
-    Check whether the specified column already
-    appears in an existing PostgreSQL index.
+    Check whether the specified column is already
+    covered by an existing PostgreSQL B-tree index.
 
-    This intentionally checks the index definition
-    rather than assuming a particular index name.
+    For composite indexes, only the leftmost indexed
+    column is treated as directly covered for a
+    single-column candidate.
+
+    Examples
+    --------
+    (customer_id)
+        -> customer_id is covered
+
+    (customer_id, order_date)
+        -> customer_id is covered
+        -> order_date is not treated as independently covered
+
+    Parameters
+    ----------
+    table_name : str
+        PostgreSQL table name.
+
+    column_name : str
+        Column to check.
+
+    Returns
+    -------
+    bool
+        True when the column is the leftmost column
+        of an existing index.
     """
 
     indexes = get_existing_indexes(
         table_name
     )
 
-    search_pattern = (
-        f"({column_name})"
-    )
-
     for index in indexes:
 
-        definition = (
-            index[
-                "index_definition"
-            ]
+        definition = index.get(
+            "index_definition",
+            ""
         )
 
-        if search_pattern in definition:
+        indexed_columns = get_indexed_columns(
+            definition
+        )
 
+        if not indexed_columns:
+            continue
+
+        if indexed_columns[0] == column_name:
             return True
 
     return False
