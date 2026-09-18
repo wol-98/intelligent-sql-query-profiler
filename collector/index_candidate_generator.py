@@ -780,44 +780,70 @@ def add_composite_candidate_if_new(
 # BUILD COMPOSITE COLUMN GROUPS
 # =========================================================
 
+# =========================================================
+# BUILD QUERY-PATTERN-AWARE COMPOSITE COLUMN GROUPS
+# =========================================================
+
 def generate_composite_candidates(
     query_metadata,
     aliases,
     tables
 ):
     """
-    Identify columns that can participate in a composite
-    index candidate.
+    Identify query-pattern-aware composite index candidates.
 
-    Column priority:
+    Composite column ordering follows the query structure:
 
-        1. WHERE columns
-        2. ORDER BY columns
-        3. GROUP BY columns
+    1. Multiple WHERE columns
+    2. WHERE + GROUP BY columns
+    3. WHERE + ORDER BY columns
+    4. GROUP BY columns
+    5. ORDER BY columns
 
-    Only columns belonging to the same table are combined.
-
-    JOIN columns are intentionally handled separately because
-    JOIN conditions may involve different tables.
+    Rules
+    -----
+    - JOIN columns are intentionally excluded.
+    - Only columns that resolve to a physical table are used.
+    - Aggregate aliases and unresolved references are ignored.
+    - Columns belonging to different tables are never combined.
+    - A composite candidate requires at least two columns.
+    - Maximum composite width is three columns.
+    - Column order is deterministic and follows query metadata.
     """
 
-    query_metadata = query_metadata or {}
-    aliases = aliases or {}
-    tables = tables or []
+    # -----------------------------------------------------
+    # Maximum number of columns in a generated composite
+    # candidate.
+    # -----------------------------------------------------
+
+    MAX_COMPOSITE_COLUMNS = 3
+
+    # -----------------------------------------------------
+    # Store resolved columns separately by query clause.
+    #
+    # Structure:
+    #
+    # {
+    #     "orders": {
+    #         "where": [...],
+    #         "group_by": [...],
+    #         "order_by": [...]
+    #     }
+    # }
+    # -----------------------------------------------------
 
     table_columns = {}
 
     def collect_columns(
-        column_references
+        column_references,
+        source_type
     ):
         """
-        Resolve and collect columns while preserving
-        their first-seen order.
+        Resolve column references and store them by table
+        and query-clause source.
         """
 
-        for column_reference in (
-            column_references or []
-        ):
+        for column_reference in column_references:
 
             table_name, column_name = (
                 resolve_column_reference(
@@ -828,57 +854,183 @@ def generate_composite_candidates(
             )
 
             # -------------------------------------------------
-            # Do not guess unresolved references.
+            # Do not guess when the table or column cannot
+            # be resolved.
+            #
+            # This also prevents aggregate aliases such as
+            # "total_spent" from becoming index columns.
             # -------------------------------------------------
 
             if not table_name or not column_name:
                 continue
 
             if table_name not in table_columns:
-                table_columns[table_name] = []
 
-            if column_name not in (
-                table_columns[table_name]
-            ):
-                table_columns[table_name].append(
+                table_columns[table_name] = {
+                    "where": [],
+                    "group_by": [],
+                    "order_by": [],
+                }
+
+            columns = table_columns[
+                table_name
+            ][source_type]
+
+            if column_name not in columns:
+
+                columns.append(
                     column_name
                 )
 
     # -----------------------------------------------------
-    # WHERE columns have highest priority.
+    # WHERE columns
     # -----------------------------------------------------
 
     collect_columns(
         query_metadata.get(
             "where_columns",
             []
-        )
+        ),
+        "where"
     )
 
     # -----------------------------------------------------
-    # ORDER BY columns come next.
-    # -----------------------------------------------------
-
-    collect_columns(
-        query_metadata.get(
-            "order_by_columns",
-            []
-        )
-    )
-
-    # -----------------------------------------------------
-    # GROUP BY columns come last.
+    # GROUP BY columns
     # -----------------------------------------------------
 
     collect_columns(
         query_metadata.get(
             "group_by_columns",
             []
-        )
+        ),
+        "group_by"
     )
 
-    return table_columns
+    # -----------------------------------------------------
+    # ORDER BY columns
+    # -----------------------------------------------------
 
+    collect_columns(
+        query_metadata.get(
+            "order_by_columns",
+            []
+        ),
+        "order_by"
+    )
+
+    # -----------------------------------------------------
+    # Build one deterministic composite pattern per table.
+    # -----------------------------------------------------
+
+    composite_candidates = {}
+
+    for table_name, column_groups in (
+        table_columns.items()
+    ):
+
+        where_columns = column_groups[
+            "where"
+        ]
+
+        group_by_columns = column_groups[
+            "group_by"
+        ]
+
+        order_by_columns = column_groups[
+            "order_by"
+        ]
+
+        selected_columns = []
+
+        # -------------------------------------------------
+        # Pattern 1:
+        #
+        # WHERE + optional GROUP BY / ORDER BY
+        #
+        # Multiple WHERE columns form the leading part.
+        # If GROUP BY or ORDER BY is also present, append
+        # those columns while respecting the maximum width.
+        # -------------------------------------------------
+
+        if where_columns:
+
+            selected_columns.extend(
+                where_columns
+            )
+
+            if group_by_columns:
+
+                selected_columns.extend(
+                    group_by_columns
+                )
+
+            elif order_by_columns:
+
+                selected_columns.extend(
+                    order_by_columns
+                )
+
+        # -------------------------------------------------
+        # Pattern 2:
+        #
+        # Multiple GROUP BY columns without WHERE.
+        # -------------------------------------------------
+
+        elif len(group_by_columns) >= 2:
+
+            selected_columns.extend(
+                group_by_columns
+            )
+
+        # -------------------------------------------------
+        # Pattern 3:
+        #
+        # Multiple ORDER BY columns without WHERE/GROUP BY.
+        # -------------------------------------------------
+
+        elif len(order_by_columns) >= 2:
+
+            selected_columns.extend(
+                order_by_columns
+            )
+        # -------------------------------------------------
+        # Remove duplicates while preserving order.
+        # -------------------------------------------------
+
+        unique_columns = []
+
+        for column_name in selected_columns:
+
+            if column_name not in unique_columns:
+
+                unique_columns.append(
+                    column_name
+                )
+
+        # -------------------------------------------------
+        # A composite index requires at least two columns.
+        # -------------------------------------------------
+
+        if len(unique_columns) < 2:
+            continue
+
+        # -------------------------------------------------
+        # Limit candidate width to avoid combinatorial
+        # growth and excessively wide recommendations.
+        # -------------------------------------------------
+
+        unique_columns = unique_columns[
+            :MAX_COMPOSITE_COLUMNS
+        ]
+
+        if len(unique_columns) < 2:
+            continue
+
+        composite_candidates[
+            table_name
+        ] = unique_columns
+
+    return composite_candidates
 
 # =========================================================
 # DETERMINE COMPOSITE SOURCE TYPE
