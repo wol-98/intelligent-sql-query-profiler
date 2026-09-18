@@ -6,7 +6,7 @@
    
  **Team:** Wol, Delvin, Leon, Samrin  
    
- **Current implementation checkpoint:** M11 — Validation Analysis & Evaluation Metrics  
+ **Current implementation checkpoint:** M15 — Query-Pattern-Aware Composite Index Generation
    
  **Repository:** intelligent-sql-query-profiler  
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANUlEQVR4nO3OMQ2AABAAsSNBCkJfE1pYGfHAiAU2QtIq6DIzW7UHAMBfnGt1V8fXEwAAXrse4dwF6o2O55YAAAAASUVORK5CYII=)  
@@ -1443,5 +1443,157 @@ M14.4:
 
 The project is therefore at a verified M14 analytical checkpoint. No database modification was introduced by the M14 analytical modules.
 
-Git commit:
-Pending.
+Git commit: 6f1896c Add integrated recommendation quality analysis
+---
+
+# 49. M15 — Query-Pattern-Aware Composite Index Generation
+
+## 49.1 Objective
+
+M15 extends the index candidate generator from primarily single-column recommendations to query-pattern-aware composite B-tree candidate generation.
+
+The objective is to identify columns that occur together in query structures and generate controlled, deterministic composite candidates while keeping candidate generation explainable.
+
+M15 does not modify recommendation scoring, workload-aware prioritization, or benchmark validation.
+
+## 49.2 Implementation
+
+Composite candidate generation is implemented in:
+
+collector/index_candidate_generator.py
+
+The generator analyzes resolved WHERE, GROUP BY, and ORDER BY columns. Columns are combined only when they resolve to the same physical table. Unresolved references are ignored rather than guessed.
+
+## 49.3 Supported Query Patterns
+
+M15 supports the following composite patterns:
+
+1. Multiple WHERE columns
+2. WHERE + GROUP BY
+3. WHERE + ORDER BY
+4. Multiple GROUP BY columns when WHERE is absent
+5. Multiple ORDER BY columns when WHERE and GROUP BY are absent
+
+JOIN columns remain separate single-column candidates.
+
+## 49.4 Candidate Width and Ordering
+
+Composite candidates are limited to a maximum of three columns.
+
+Column ordering is deterministic and follows the query structure, with WHERE columns forming the leading portion when applicable.
+
+The implementation does not generate exhaustive permutations of column order.
+
+## 49.5 Safeguards
+
+Existing candidate-generation safeguards remain active, including:
+
+- table and column resolution;
+- existing-index detection;
+- direct index coverage checks;
+- candidate deduplication;
+- exact duplicate suppression;
+- prefix/redundancy analysis;
+- candidate metadata generation.
+
+Cross-table composite indexes are not generated.
+
+## 49.6 Recommendation Metadata
+
+Composite candidates continue through the existing recommendation pipeline and retain candidate metadata including:
+
+- table name;
+- column information;
+- candidate type;
+- source type;
+- column count;
+- reason.
+
+The recommendation scoring formula remains unchanged.
+
+## 49.7 Test Coverage
+
+M15 added dedicated tests covering:
+
+- multiple WHERE columns;
+- WHERE + GROUP BY;
+- WHERE + ORDER BY;
+- multiple GROUP BY columns;
+- multiple ORDER BY columns;
+- maximum composite width;
+- aggregate alias exclusion;
+- JOIN-column exclusion.
+
+The candidate-generator suite now contains 58 tests.
+
+## 49.8 Verification
+
+M15 verification completed successfully:
+
+- Python syntax compilation passed;
+- candidate-generator tests: 58 passed;
+- full project test suite: 179 passed;
+- git diff --check: clean.
+
+## 49.9 Git Checkpoint
+
+M15 was committed and pushed to GitHub.
+
+Commit:
+
+833d205 Add query-pattern-aware composite index generation
+
+Repository state:
+
+origin/main is up to date and the working tree is clean.
+
+## 49.10 Methodological Boundary
+
+M15 is limited to candidate generation.
+
+It does not:
+
+- change the recommendation scoring formula;
+- use benchmark outcomes to generate candidates;
+- change workload-aware prioritization;
+- automatically create permanent indexes;
+- claim that generated composite indexes will improve performance;
+- perform exhaustive column-order optimization.
+
+Composite candidates therefore remain recommendations requiring experimental validation.
+
+## 49.11 Contribution to the Research Prototype
+
+M15 advances the prototype from primarily single-column candidate generation toward query-structure-aware index optimization.
+
+It provides a foundation for future experimental investigation of composite-index effectiveness, column ordering, workload-level optimization, index cost-benefit analysis, and recommendation confidence.
+
+---
+
+# 50. M15 — Verification Checkpoint
+
+M15 is complete at the implementation level.
+
+Implemented:
+Query-pattern-aware composite index candidate generation.
+
+Tested:
+8 dedicated M15 tests;
+58 candidate-generator tests;
+179 full-project tests.
+
+Verified:
+Python syntax;
+regression compatibility;
+whitespace cleanliness.
+
+Committed:
+833d205
+
+Pushed:
+origin/main
+
+Repository:
+clean working tree and up to date with origin/main.
+
+The project is ready to proceed from the stable M15 Git checkpoint.
