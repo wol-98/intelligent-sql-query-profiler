@@ -6,8 +6,83 @@ the recommendation engine into PostgreSQL.
 """
 
 from datetime import datetime
+import re
 
 from config.database import get_connection
+
+
+# =========================================================
+# INDEX NAME HELPERS
+# =========================================================
+
+def normalize_index_name_part(value):
+    """
+    Convert a table or column expression into a safe
+    PostgreSQL index-name component.
+
+    Composite column expressions such as:
+
+        customer_id, status
+
+    become:
+
+        customer_id_status
+    """
+
+    value = str(value).strip()
+
+    # Replace separators and whitespace with underscores.
+    value = re.sub(
+        r"[^a-zA-Z0-9_]+",
+        "_",
+        value
+    )
+
+    # Collapse repeated underscores.
+    value = re.sub(
+        r"_+",
+        "_",
+        value
+    )
+
+    # Remove leading/trailing underscores.
+    value = value.strip("_")
+
+    return value
+
+
+def generate_index_name(
+    table_name,
+    column_name
+):
+    """
+    Generate a valid PostgreSQL index name.
+
+    Examples
+    --------
+    orders + customer_id
+        -> idx_orders_customer_id
+
+    orders + customer_id, status
+        -> idx_orders_customer_id_status
+    """
+
+    table_part = normalize_index_name_part(
+        table_name
+    )
+
+    column_part = normalize_index_name_part(
+        column_name
+    )
+
+    index_name = (
+        f"idx_{table_part}_{column_part}"
+    )
+
+    # PostgreSQL identifiers are limited to 63 bytes.
+    # The generated names here are ASCII, so character
+    # length is sufficient for this project.
+    return index_name[:63]
 
 
 # =========================================================
@@ -21,15 +96,34 @@ def generate_index_sql(
 ):
     """
     Generate PostgreSQL CREATE INDEX statement.
+
+    Supports both single-column and composite
+    index candidates.
+
+    Examples
+    --------
+    Single column:
+
+        CREATE INDEX idx_orders_customer_id
+        ON orders USING BTREE (customer_id);
+
+    Composite:
+
+        CREATE INDEX idx_orders_customer_id_status
+        ON orders USING BTREE (customer_id, status);
     """
 
-    index_name = f"idx_{table_name}_{column_name}"
+    index_name = generate_index_name(
+        table_name,
+        column_name
+    )
 
     normalized_type = (
         index_type
         .strip()
         .lower()
         .replace("-", "")
+        .replace(" ", "")
     )
 
     if normalized_type == "btree":
@@ -266,21 +360,15 @@ def print_saved_recommendations(
     recommendation_ids
 ):
     """
-    Display recommendations that were saved
-    or reused.
+    Print saved recommendation records.
     """
-
-    print("\n" + "=" * 70)
-    print("SAVED RECOMMENDATIONS")
-    print("=" * 70)
 
     if not recommendation_ids:
 
         print(
-            "No recommendations were saved."
+            "\nNo recommendation records "
+            "were saved."
         )
-
-        print("=" * 70)
 
         return
 
@@ -300,51 +388,97 @@ def print_saved_recommendations(
                 index_type,
                 recommendation_score,
                 priority,
-                index_sql
+                reasoning,
+                index_sql,
+                created_at
             FROM index_recommendations
             WHERE recommendation_id = ANY(%s)
             ORDER BY recommendation_id;
             """,
-            (recommendation_ids,)
+            (
+                recommendation_ids,
+            )
         )
 
-        for row in cur.fetchall():
-
-            print(
-                f"\nRecommendation ID : {row[0]}"
-            )
-
-            print(
-                f"Query Profile ID  : {row[1]}"
-            )
-
-            print(
-                f"Table             : {row[2]}"
-            )
-
-            print(
-                f"Column            : {row[3]}"
-            )
-
-            print(
-                f"Index Type        : {row[4]}"
-            )
-
-            print(
-                f"Score             : {row[5]}/100"
-            )
-
-            print(
-                f"Priority          : {row[6]}"
-            )
-
-            print(
-                f"Index SQL         : {row[7]}"
-            )
+        rows = cur.fetchall()
 
     finally:
 
         cur.close()
         conn.close()
 
-    print("\n" + "=" * 70)
+    print(
+        "\n" + "=" * 80
+    )
+
+    print(
+        "SAVED RECOMMENDATIONS"
+    )
+
+    print(
+        "=" * 80
+    )
+
+    for row in rows:
+
+        (
+            recommendation_id,
+            query_profile_id,
+            table_name,
+            column_name,
+            index_type,
+            recommendation_score,
+            priority,
+            reasoning,
+            index_sql,
+            created_at
+        ) = row
+
+        print(
+            f"\nRecommendation ID : "
+            f"{recommendation_id}"
+        )
+
+        print(
+            f"Query Profile ID  : "
+            f"{query_profile_id}"
+        )
+
+        print(
+            f"Index Candidate    : "
+            f"{table_name}.{column_name}"
+        )
+
+        print(
+            f"Index Type        : "
+            f"{index_type}"
+        )
+
+        print(
+            f"Score             : "
+            f"{recommendation_score}"
+        )
+
+        print(
+            f"Priority          : "
+            f"{priority}"
+        )
+
+        print(
+            f"Reasoning         : "
+            f"{reasoning}"
+        )
+
+        print(
+            f"Index SQL         : "
+            f"{index_sql}"
+        )
+
+        print(
+            f"Created At        : "
+            f"{created_at}"
+        )
+
+    print(
+        "\n" + "=" * 80
+    )
