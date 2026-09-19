@@ -77,6 +77,6 @@ def build_m18_4_experiment_set():
             write_iterations=5,
             write_warmup_runs=2,
             index_type="BTREE",
-            notes="Q015 pattern - grouping and ordering by customer",
+            notes="Standalone customer grouping and ordering workload",
         ),
     ]
