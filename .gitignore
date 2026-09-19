@@ -27,3 +27,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.swp
+
+# Node / frontend dependencies
+node_modules/
+
+# Frontend build output
+dist/
