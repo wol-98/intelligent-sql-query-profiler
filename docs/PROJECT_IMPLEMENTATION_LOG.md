@@ -85,7 +85,7 @@ The project is being developed as one integrated system. Individual ownership is
 | M6 | Index candidate generation | Completed |   
 | M7 | Recommendation engine | Completed |   
 | M8 | Benchmarking engine | Completed |   
-| M9 | Dashboard | Planned / not yet completed |   
+| M9 | Dashboard | Completed |   
 | M10 | Validation decision layer | Completed |   
 | M11 | Validation analysis and evaluation metrics | Completed |   
 | Git checkpoint | Version-controlled baseline | Completed |   
@@ -598,6 +598,50 @@ median_before_ms
    
 This change allowed the project to retain not only performance numbers but also evidence about correctness and execution-plan behavior.  
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAnEAAAACCAYAAAA3pIp+AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAANElEQVR4nO3OQQmAABRAsad4FCtY9ecwnkms4E2ELcGWmTmrKwAA/uLeqrU6vp4AAPDa/gDzUgM9+S8z3AAAAABJRU5ErkJggg==)  
+
+## M9 — Dashboard
+
+The Streamlit dashboard has been completed and integrated with
+the PostgreSQL project data.
+
+The dashboard provides the following six sections:
+
+1. Overview
+   - Queries analyzed
+   - Slow queries
+   - Recommendations
+   - Validated improvements
+
+2. Query Explorer
+   - Individual query selection
+   - SQL query inspection
+   - Query profile features
+
+3. Recommendations
+   - Candidate indexes
+   - Recommendation scores
+   - Rationale
+   - Validation status
+
+4. Benchmarking
+   - BEFORE execution time
+   - AFTER execution time
+   - Percentage improvement
+
+5. Database Insights
+   - Frequently accessed tables and columns
+   - High-cost query patterns
+
+6. Validation Results
+   - Successful validations
+   - Neutral validations
+   - Unsuccessful validations
+
+The dashboard reads the stored project data and presents the
+benchmarking and validation results for interpretation.
+
+The dashboard was implemented using Streamlit, pandas and Plotly.
+
 **21. M10 — Validation Evidence Backfill**  
 A backfill procedure was created in:  
 tests/backfill_validation_evidence.py  
