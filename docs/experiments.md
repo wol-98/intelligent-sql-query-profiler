@@ -56,3 +56,92 @@ SELECT *
 FROM orders
 WHERE customer_id = 845
   AND status = 'Completed';
+## M17 — Index Cost & Maintenance Impact Analysis
+
+### M17.1 — Index Cost Metadata
+
+M17.1 measures the structural storage cost of an experimental PostgreSQL
+index without changing recommendation generation or recommendation scores.
+
+The experiment created a temporary B-tree index on:
+
+- Table: `orders`
+- Column: `customer_id`
+
+Observed metadata:
+
+| Metric | Result |
+|---|---:|
+| Index type | B-tree |
+| Index size | 606,208 bytes (592 kB) |
+| Table size | 3,227,648 bytes (3152 kB) |
+| Index/table ratio | 18.7817% |
+| Unique | False |
+| Primary | False |
+| Valid | True |
+
+The experimental index was removed after measurement.
+
+The result demonstrates that an index recommendation has a measurable
+storage footprint in addition to any query-performance benefit.
+
+### M17.2 — Index Maintenance Experiment
+
+M17.2 measures the write-side execution cost associated with an experimental
+secondary index.
+
+The experiment used a temporary table populated from the `orders` workload
+and compared controlled INSERT batches under:
+
+1. A baseline condition without a secondary index.
+2. An indexed condition with a B-tree index on `customer_id`.
+
+Experimental configuration:
+
+- Rows per measured iteration: 10,000
+- Warm-up iterations: 2
+- Measured iterations: 5
+- Indexed column: `customer_id`
+
+Observed measurements:
+
+| Metric | Baseline | Indexed |
+|---|---:|---:|
+| Average execution time | 82.9513 ms | 146.4019 ms |
+| Median execution time | 88.0415 ms | 91.0569 ms |
+| Minimum | 55.3567 ms | 86.6385 ms |
+| Maximum | 93.1040 ms | 374.3128 ms |
+| Standard deviation | 15.5857 ms | 127.4194 ms |
+
+Mean-based overhead:
+
+- Absolute overhead: 63.4506 ms
+- Percentage overhead: 76.4914%
+
+Median-based overhead:
+
+- Absolute overhead: 3.0154 ms
+- Percentage overhead: approximately 3.43%
+
+The indexed condition showed higher measured write time in this experiment.
+However, the 374.3128 ms indexed observation produced substantial
+variability and strongly affected the mean. Therefore, the 76.4914% mean
+increase should not be interpreted as a universal index-maintenance cost.
+
+The median provides a more robust description of the typical observation in
+this small experiment, while the mean preserves the aggregate observed
+effect.
+
+The experiment is descriptive and limited to the tested database,
+workload, PostgreSQL environment, data state, and execution conditions.
+
+The experimental table and index were removed after the experiment.
+
+### M17 Design Principle
+
+M17 keeps index cost analysis separate from recommendation scoring.
+
+The measured storage and maintenance observations are not currently used to
+modify candidate generation, recommendation scores, or recommendation
+priorities. They provide empirical evidence for the later read-benefit versus
+cost analysis in M17.3.

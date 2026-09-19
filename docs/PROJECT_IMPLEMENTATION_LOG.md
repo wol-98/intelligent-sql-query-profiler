@@ -2107,3 +2107,82 @@ Verified:
 * Git whitespace cleanliness.
 
 M16.2 is ready for the Git checkpoint.
+## M17 — Index Cost & Maintenance Impact Analysis
+
+### M17.1 — Index Cost Metadata
+
+Implemented `collector/index_cost_analyzer.py` and
+`tests/test_index_cost_analyzer.py`.
+
+The module retrieves PostgreSQL index metadata including:
+
+- index type
+- indexed columns
+- column count
+- uniqueness
+- primary-key status
+- validity
+- index size
+- table size
+- index/table storage ratio
+
+The implementation is analytical and does not create or remove indexes,
+execute workloads, or modify recommendation logic.
+
+Real database validation created a temporary B-tree index on
+`orders(customer_id)`.
+
+Observed:
+
+- Index size: 606,208 bytes (592 kB)
+- Table size: 3,227,648 bytes (3152 kB)
+- Index/table ratio: 18.7817%
+
+The experimental index was removed successfully.
+
+### M17.2 — Index Maintenance Experiment
+
+Implemented:
+
+- `collector/index_maintenance_experiment.py`
+- `tests/test_index_maintenance_experiment.py`
+- `m17_2_real_runner.py`
+
+The experiment compares controlled INSERT workloads on a temporary table
+without and with an experimental B-tree index.
+
+The revised experiment uses:
+
+- 10,000 rows per iteration
+- 2 warm-up iterations
+- 5 measured iterations
+- mean, median, minimum, maximum and standard deviation
+
+Real experiment results:
+
+- Baseline mean: 82.9513 ms
+- Indexed mean: 146.4019 ms
+- Mean overhead: 76.4914%
+- Baseline median: 88.0415 ms
+- Indexed median: 91.0569 ms
+- Median overhead: approximately 3.43%
+- Indexed maximum: 374.3128 ms
+- Indexed standard deviation: 127.4194 ms
+
+The indexed condition showed higher measured write time, but the large
+374.3128 ms observation substantially affected the mean. The result is
+therefore treated as workload-specific experimental evidence rather than a
+general index-maintenance cost estimate.
+
+The M17.2 analytical layer preserves both mean and median measures and
+explicitly records variability.
+
+### Validation
+
+Full project test suite:
+
+- 241 tests passed
+- 0 failures
+
+M17 does not currently modify recommendation scores, candidate generation,
+or recommendation priorities.
