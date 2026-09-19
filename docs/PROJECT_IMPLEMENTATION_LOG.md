@@ -1597,3 +1597,513 @@ Repository:
 clean working tree and up to date with origin/main.
 
 The project is ready to proceed from the stable M15 Git checkpoint.
+
+**Current implementation checkpoint:** M16.2 — Composite Index Effectiveness & Column-Order Evaluation
+# 51. M16.1 — Experimental Composite Column-Order Layer
+
+## 51.1 Objective
+
+M16.1 introduces a controlled experimental layer for generating alternative
+column-order variants from M15 composite index candidates.
+
+The purpose is to investigate whether different column orderings of the same
+composite candidate produce different measured query-performance outcomes.
+
+M16.1 is experimental only and does not modify the M15 recommendation
+generation process.
+
+## 51.2 Implementation
+
+The experimental column-order layer is implemented in:
+
+```text
+collector/composite_order_experiment.py
+````
+
+The module:
+
+* accepts only composite candidates;
+* supports two- and three-column candidates;
+* preserves the original candidate ordering;
+* generates one controlled alternative ordering by reversing the
+  original column order;
+* does not generate exhaustive permutations;
+* does not execute database queries;
+* does not create database indexes;
+* does not use benchmark outcomes;
+* does not use recommendation scores;
+* does not modify recommendation generation.
+
+## 51.3 Experimental Design
+
+For each eligible composite candidate, the experiment contains:
+
+1. the original M15 column ordering;
+2. one alternative reversed ordering;
+3. the same table;
+4. the same query;
+5. the same experimental protocol.
+
+The original and alternative variants are subsequently evaluated against
+the same baseline during M16.2.
+
+The design intentionally avoids exhaustive permutation generation in order
+to keep the experimental layer controlled and computationally manageable.
+
+## 51.4 Test Coverage
+
+M16.1 added dedicated tests covering:
+
+* composite-candidate eligibility;
+* invalid candidate rejection;
+* two-column candidates;
+* three-column candidates;
+* invalid column counts;
+* alternative-order generation;
+* duplicate-column handling;
+* preservation of candidate metadata;
+* experiment construction;
+* batch experiment generation.
+
+M16.1 dedicated tests:
+
+```text
+12/12 passed
+```
+
+## 51.5 Verification
+
+M16.1 verification completed successfully:
+
+* Python implementation verified;
+* dedicated tests: 12 passed;
+* full project test suite at the M16.1 checkpoint: 191 passed;
+* experimental logic remained separate from recommendation generation.
+
+## 51.6 Git Checkpoint
+
+M16.1 was committed and pushed to GitHub.
+
+Commit:
+
+```text
+d654d28 Add composite index column-order experiment
+```
+
+---
+
+# 52. M16.2 — Composite Index Effectiveness & Column-Order Evaluation
+
+## 52.1 Objective
+
+M16.2 experimentally evaluates whether column ordering within a composite
+B-tree index affects measured query performance.
+
+The evaluation compares the original M15 column ordering with a controlled
+alternative ordering for the same composite candidate.
+
+Both variants are compared against the same query baseline.
+
+M16.2 is an experimental evaluation layer and does not modify M15
+candidate-generation logic or the recommendation scoring formula.
+
+## 52.2 Composite Test-Index Support
+
+Controlled composite indexes are created through the dedicated composite
+test-index helper in:
+
+```text
+collector/index_validator.py
+```
+
+The helper validates the table and column identifiers and creates a
+temporary B-tree composite index for experimental validation.
+
+The established single-column test-index path remains unchanged.
+
+Experimental indexes are removed after the corresponding experiment.
+
+## 52.3 Experimental Evaluator
+
+The M16.2 evaluator is implemented in:
+
+```text
+collector/composite_order_evaluator.py
+```
+
+The evaluator follows a controlled three-stage process:
+
+```text
+Baseline
+   ↓
+Original Composite Index
+   ↓
+Alternative Composite Index
+```
+
+For each experiment, it:
+
+* establishes a common baseline;
+* benchmarks the query;
+* creates the original composite index;
+* analyzes the table;
+* benchmarks the query;
+* records execution and plan evidence;
+* checks index usage;
+* removes the original index;
+* creates the alternative composite index;
+* analyzes the table;
+* benchmarks the query;
+* records equivalent evidence;
+* checks index usage;
+* removes the alternative index;
+* calculates improvement for both variants;
+* calculates the order-effect difference;
+* verifies row preservation.
+
+The evaluator does not store these experimental results in the
+`benchmark_results` table.
+
+## 52.4 Experimental Recommendations
+
+Four composite recommendations were selected for controlled
+column-order experiments:
+
+| Recommendation | Original Order               | Alternative Order            |
+| -------------- | ---------------------------- | ---------------------------- |
+| Rec32          | `customer_id, status`        | `status, customer_id`        |
+| Rec33          | `order_date, total_amount`   | `total_amount, order_date`   |
+| Rec34          | `status, customer_id`        | `customer_id, status`        |
+| Rec35          | `segment, customer_id, name` | `name, customer_id, segment` |
+
+## 52.5 Recommendation 32
+
+Query:
+
+```sql
+SELECT *
+FROM orders
+WHERE customer_id = 845
+  AND status = 'Completed';
+```
+
+Observed results:
+
+| Metric             | Original | Alternative |
+| ------------------ | -------: | ----------: |
+| Execution time     | 0.117 ms |    0.113 ms |
+| Improvement        |   97.16% |      97.27% |
+| Index used         |      Yes |         Yes |
+| Rows preserved     |      Yes |         Yes |
+| Plan changed       |      Yes |         Yes |
+| Shared buffer hits |        3 |           3 |
+| Shared reads       |        0 |           0 |
+
+Order effect:
+
+```text
++0.10 percentage points
+```
+
+The two column orderings produced almost identical measured performance
+in this experiment.
+
+## 52.6 Recommendation 33
+
+Query:
+
+```sql
+SELECT *
+FROM orders
+WHERE order_date >= (
+    SELECT MAX(order_date) - INTERVAL '90 days'
+    FROM orders
+)
+AND total_amount > 1000;
+```
+
+Observed baseline execution time:
+
+```text
+13.925 ms
+```
+
+Observed results:
+
+| Metric             | Original | Alternative |
+| ------------------ | -------: | ----------: |
+| Execution time     | 2.768 ms |   13.962 ms |
+| Improvement        |   80.13% |      -0.26% |
+| Index used         |      Yes |          No |
+| Rows preserved     |      Yes |         Yes |
+| Plan changed       |      Yes |         Yes |
+| Shared buffer hits |     3364 |         788 |
+| Shared reads       |        0 |           0 |
+
+Order effect:
+
+```text
+-80.39 percentage points
+```
+
+The original ordering produced a substantial measured improvement, while
+the reversed ordering produced essentially no improvement and was not used
+by the query plan.
+
+## 52.7 Recommendation 34
+
+Query:
+
+```sql
+SELECT
+    customer_id,
+    SUM(total_amount) AS total_spent
+FROM orders
+WHERE status = 'Completed'
+GROUP BY customer_id;
+```
+
+Observed baseline execution time:
+
+```text
+17.088 ms
+```
+
+Observed results:
+
+| Metric             |  Original | Alternative |
+| ------------------ | --------: | ----------: |
+| Execution time     | 13.984 ms |   17.034 ms |
+| Improvement        |    16.88% |      -1.25% |
+| Index used         |       Yes |          No |
+| Rows preserved     |       Yes |         Yes |
+| Plan changed       |       Yes |         Yes |
+| Shared buffer hits |     12603 |         394 |
+| Shared reads       |         0 |           0 |
+
+Order effect:
+
+```text
+-18.13 percentage points
+```
+
+The original ordering produced a measurable improvement, whereas the
+alternative ordering did not provide a measured benefit and was not used
+by the query plan.
+
+## 52.8 Recommendation 35
+
+Query:
+
+```sql
+SELECT
+    c.customer_id,
+    c.name,
+    COUNT(o.order_id) AS number_of_orders,
+    SUM(o.total_amount) AS total_spent
+FROM customers c
+JOIN orders o
+    ON c.customer_id = o.customer_id
+WHERE c.segment = 'Corporate'
+GROUP BY c.customer_id, c.name
+ORDER BY total_spent DESC
+LIMIT 20;
+```
+
+Observed baseline execution time:
+
+```text
+25.844 ms
+```
+
+Observed results:
+
+| Metric             |  Original | Alternative |
+| ------------------ | --------: | ----------: |
+| Execution time     | 26.012 ms |   26.450 ms |
+| Improvement        |    -0.65% |      -2.35% |
+| Index used         |       Yes |         Yes |
+| Rows preserved     |       Yes |         Yes |
+| Plan changed       |       Yes |         Yes |
+| Shared buffer hits |       420 |         460 |
+| Shared reads       |         0 |           0 |
+
+Order effect:
+
+```text
+-1.69 percentage points
+```
+
+Neither column ordering produced a meaningful measured improvement over
+the baseline in this experiment.
+
+## 52.9 Consolidated M16.2 Analysis
+
+The analytical layer is implemented in:
+
+```text
+collector/composite_order_analysis.py
+```
+
+Dedicated tests are implemented in:
+
+```text
+tests/test_composite_order_analysis.py
+```
+
+The four controlled experiments produced the following consolidated
+results:
+
+| Metric                                |    Result |
+| ------------------------------------- | --------: |
+| Experiments                           |         4 |
+| Mean order effect                     | -25.03 pp |
+| Median order effect                   |  -9.91 pp |
+| Minimum order effect                  | -80.39 pp |
+| Maximum order effect                  |  +0.10 pp |
+| Negligible effects                    |         1 |
+| Moderate effects                      |         1 |
+| Substantial effects                   |         2 |
+| Original-order average improvement    |    48.38% |
+| Alternative-order average improvement |    23.35% |
+| Original-order median improvement     |    48.50% |
+| Alternative-order median improvement  |    -0.76% |
+| Original index usage                  |      100% |
+| Alternative index usage               |       50% |
+| Rows preserved by both variants       |      100% |
+
+The order-effect measure is calculated as the observed improvement of the
+original ordering minus the observed improvement of the alternative
+ordering.
+
+The four observed order effects were:
+
+| Recommendation | Order Effect | Classification |
+| -------------- | -----------: | -------------- |
+| Rec32          |     +0.10 pp | Negligible     |
+| Rec33          |    -80.39 pp | Substantial    |
+| Rec34          |    -18.13 pp | Substantial    |
+| Rec35          |     -1.69 pp | Moderate       |
+
+The classifications are descriptive thresholds introduced for the M16.2
+analysis and are not PostgreSQL standards.
+
+## 52.10 Research Finding
+
+The four controlled experiments indicate that composite-index column order
+can affect query performance, but the magnitude of the effect is
+query-dependent.
+
+The observed effects ranged from negligible to substantial.
+
+Recommendation 32 showed almost no difference between the two tested
+orders, whereas Recommendations 33 and 34 showed substantial differences.
+Recommendation 35 showed a smaller difference, while neither ordering
+produced a meaningful improvement over the baseline.
+
+The experiments therefore do not establish a universal optimal
+column-ordering rule.
+
+The results also demonstrate that index usage alone is not sufficient
+evidence of meaningful performance improvement. Recommendation 35 provides
+an example in which both variants were used while both produced slightly
+negative improvement relative to the baseline.
+
+## 52.11 Methodological Boundary
+
+M16.2 remains an experimental evaluation layer.
+
+It does not:
+
+* modify M15 candidate generation;
+* modify the recommendation scoring formula;
+* use validation outcomes to generate candidates;
+* automatically select a permanent column ordering;
+* claim a universal column-ordering rule;
+* create permanent database indexes.
+
+The findings are limited to the tested queries, database state, data
+distribution, PostgreSQL planner behavior, caching state, and experimental
+protocol.
+
+The results should therefore be interpreted as controlled observations
+within the project environment rather than as a general rule for all
+PostgreSQL workloads.
+
+## 52.12 Reproducibility
+
+The consolidated M16.2 analysis can be reproduced using:
+
+```text
+m16_2_analysis_runner.py
+```
+
+The individual controlled experiments were executed using:
+
+```text
+recommendation_32_experimental_runner.py
+recommendation_33_experimental_runner.py
+recommendation_34_experimental_runner.py
+recommendation_35_experimental_runner.py
+```
+
+The analytical component does not alter the underlying M15
+recommendation-generation logic.
+
+## 52.13 Test Coverage
+
+M16.2 analytical tests:
+
+```text
+7/7 passed
+```
+
+The complete project regression suite after M16.2 implementation:
+
+```text
+214/214 passed
+```
+
+Python syntax compilation for the analytical module passed successfully.
+
+Git whitespace verification using:
+
+```text
+git diff --check
+```
+
+also completed successfully.
+
+---
+
+# 53. M16.2 — Verification Checkpoint
+
+M16.2 experimental evaluation and analytical consolidation are complete.
+
+Implemented:
+
+* controlled composite column-order experiment layer;
+* composite test-index creation support;
+* controlled original/alternative benchmark evaluation;
+* order-effect calculation;
+* experimental result classification;
+* consolidated M16.2 analysis.
+
+Tested:
+
+* M16.1 dedicated tests: 12/12 passed;
+* M16.2 analytical tests: 7/7 passed;
+* full project test suite: 214/214 passed.
+
+Verified:
+
+* controlled original and alternative column-order experiments;
+* row preservation;
+* index usage;
+* plan changes;
+* buffer evidence;
+* consolidated analytical statistics;
+* Python syntax compilation;
+* Git whitespace cleanliness.
+
+M16.2 is ready for the Git checkpoint.
