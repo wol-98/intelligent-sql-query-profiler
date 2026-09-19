@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import cost_benefit
+from api.routes import composite
 
 from api.routes.overview import (
     router as overview_router,
@@ -46,10 +47,13 @@ app.include_router(
 )
 app.include_router(
     workloads_router)
+
 app.include_router(
     cost_benefit.router)
 
-
+app.include_router(
+    composite.router
+)
 @app.get("/api/health")
 def health_check() -> dict[str, str]:
     return {

@@ -21,3 +21,7 @@ export function getWorkloads() {
 export function getCostBenefits() {
   return request('/api/cost-benefit')
 }
+
+export function getCompositeIndexes() {
+  return request('/api/composite-indexes')
+}

@@ -32,7 +32,7 @@ const navigationItems = [
   {
     id: 'composite-indexes',
     label: 'Composite Indexes',
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'production-decisions',

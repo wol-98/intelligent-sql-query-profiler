@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import CostBenefitPage from './pages/CostBenefitPage'
+import CompositeIndexesPage from './pages/CompositeIndexesPage'
 
 import AppShell from './components/layout/AppShell'
 import OverviewPage from './pages/OverviewPage'
@@ -53,6 +54,9 @@ function App() {
 
     if (activePage === 'cost-benefit') {
       return <CostBenefitPage />
+    }
+    if (activePage === 'composite-indexes') {
+      return <CompositeIndexesPage />
     }
 
     if (activePage === 'recommendations') {
