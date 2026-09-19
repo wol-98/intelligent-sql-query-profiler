@@ -332,3 +332,130 @@ M17.4 validation completed successfully:
 - Real M17.4 analysis: completed successfully
 - No cost-aware classification was assigned without
   same-index linked evidence.
+
+## M18 — Linked Index Cost-Benefit Validation
+
+M18 closes the evidence-linkage gap identified in M17 by measuring read
+benefit, index storage, and write-side cost for the same experimental
+index and workload.
+
+### Research Question
+
+> When read performance and index costs are measured for the same
+> experimental index and workload, can the project quantify the observed
+> read/storage/write trade-off?
+
+### M18.1 — Linked Cost-Benefit Experiment Design
+
+M18.1 defines the controlled experiment contract.
+
+Each experiment specifies:
+
+- experiment identifier;
+- experimental index;
+- table and indexed columns;
+- read query;
+- read iterations and warmups;
+- write iterations and warmups;
+- controlled write table;
+- index type.
+
+The read query uses a `{table}` placeholder for isolated experiment
+tables.
+
+M18.1 is design and validation only.
+
+### M18.2 — Linked Read/Write Benchmark
+
+M18.2 implements the linked benchmark sequence:
+
+1. baseline read;
+2. indexed read;
+3. storage measurement;
+4. baseline write;
+5. indexed write;
+6. cleanup.
+
+The same experimental index is used to link the read, storage, and write
+evidence.
+
+The completed M18.2 experiment measured a 96.25% average read
+improvement for `orders.customer_id`, with a 16.52% index/table storage
+ratio and 8.09% average write overhead.
+
+Mean and median write measurements are retained separately because
+write-side variability can substantially affect the mean.
+
+### M18.3 — Linked Cost-Benefit Analysis
+
+M18.3 provides analytical functions for:
+
+- read savings;
+- read improvement;
+- storage ratio;
+- write overhead;
+- linked evidence analysis.
+
+No arbitrary single cost-benefit ratio is calculated because read time,
+storage size, and write overhead represent different dimensions.
+
+### M18.4 — Cross-Workload Evaluation
+
+M18.4 applies the linked measurement contract to three controlled
+workload patterns:
+
+| Experiment | Workload | Read improvement | Storage ratio | Mean write overhead |
+|---|---|---:|---:|---:|
+| `M18_004` | Q001 selective equality lookup | 96.15% | 18.78% | 61.95% |
+| `M18_005` | Q009 join + category filter | 0.83% | 25.00% | 17.49% |
+| `M18_006` | Q015 grouping + ordering | 97.80% | 16.52% | 88.67% |
+
+All three experiments preserved rows, used the experimental index, and
+reported plan changes.
+
+The results demonstrate workload-dependent behavior. In particular,
+`M18_005` used its experimental index but produced only a 0.83% average
+read improvement. This reinforces that index usage alone is not
+sufficient evidence of meaningful performance benefit.
+
+Across the three experiments:
+
+- mean read improvement: 64.93%;
+- median read improvement: 96.15%;
+- mean read savings: 8.46 ms;
+- mean storage ratio: 20.10%;
+- mean write overhead: 56.03%.
+
+These aggregate values are descriptive of the three tested experiments
+and are not universal estimates.
+
+### M18 Design Boundary
+
+M18 remains experimental and analytical.
+
+It does not modify:
+
+- recommendation scores;
+- candidate generation;
+- recommendation priorities;
+- `benchmark_results`;
+- production index configuration.
+
+### M18 Limitations
+
+M18.4 contains only three workload experiments and five measured write
+iterations per experiment. Results can be affected by PostgreSQL planner
+behavior, caching, system load, and the experimental environment.
+
+Mean and median write overhead can diverge substantially. Both measures
+are therefore retained.
+
+### M18 Validation
+
+The complete project test suite passed:
+
+**318 tests passed, 0 failures.**
+
+### Status
+
+**M18 — Linked Index Cost-Benefit Validation: LOCKED**
