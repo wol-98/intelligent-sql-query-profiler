@@ -225,3 +225,110 @@ priorities are not changed by M17.3.
 
 M17.3 therefore provides the analytical evidence required for the subsequent
 M17.4 cost-aware recommendation analysis.
+
+### M17.4 — Cost-Aware Recommendation Analysis
+
+M17.4 adds an analytical layer for examining recommendation
+effectiveness together with index cost evidence.
+
+The analysis intentionally keeps historical recommendation
+evidence separate from the controlled M17.1 and M17.2 cost
+experiments unless the measurements refer to the same
+experimental index.
+
+#### Objective
+
+The objective is to determine whether the available project
+evidence is sufficient to perform a cost-aware classification
+of index recommendations.
+
+The analysis considers:
+
+- read-performance evidence,
+- index storage-cost evidence,
+- index write-maintenance evidence,
+- workload evidence,
+- and explicit evidence linkage.
+
+M17.4 does not modify the recommendation score, candidate
+generation, recommendation priority, or benchmark_results.
+
+#### Real Analysis Results
+
+The M17.4 real analysis produced:
+
+| Metric | Result |
+|---|---:|
+| Recommendation observations | 29 |
+| Read evidence available | 23 |
+| No read evidence | 6 |
+| Same-index cost linked | 0 |
+| Complete evidence | 0 |
+| Partial evidence | 0 |
+| Limited evidence | 23 |
+| Insufficient evidence | 6 |
+
+No recommendation observations currently have same-index
+linked storage and maintenance-cost evidence.
+
+Consequently, no complete cost-aware classification was
+assigned to the historical recommendation set.
+
+#### Cost-Aware Classifications
+
+| Classification | Observations |
+|---|---:|
+| Benefit with low cost | 0 |
+| Benefit with measurable cost | 0 |
+| Low benefit with cost | 0 |
+| Negative benefit with cost | 0 |
+| Mixed evidence | 0 |
+
+The absence of these classifications is intentional. M17.4
+does not attach the M17.1/M17.2 cost measurements to
+historical recommendations merely because they are related
+to index performance.
+
+#### Methodological Finding
+
+The current project contains validated read-performance
+evidence and controlled storage/maintenance-cost evidence,
+but these evidence streams are not currently linked at the
+same experimental-index level.
+
+Therefore, a complete numerical cost-aware recommendation
+decision cannot yet be derived without introducing a new
+controlled experiment that measures read benefit and index
+cost for the same index and workload.
+
+This prevents unsupported cost-benefit ratios or
+cost-adjusted recommendation scores from being introduced
+into the system.
+
+#### Design Impact
+
+M17.4 is analytical only.
+
+It does not:
+
+- modify recommendation scores;
+- modify candidate generation;
+- modify workload prioritization;
+- modify recommendation priorities;
+- create or drop database indexes;
+- execute benchmark queries;
+- write new benchmark_results.
+
+The result provides a methodological foundation for any
+future cost-aware optimization experiment.
+
+#### Validation
+
+M17.4 validation completed successfully:
+
+- M17.4 unit tests: 13 passed
+- Full project test suite: 265 passed
+- Python compilation: successful
+- Real M17.4 analysis: completed successfully
+- No cost-aware classification was assigned without
+  same-index linked evidence.

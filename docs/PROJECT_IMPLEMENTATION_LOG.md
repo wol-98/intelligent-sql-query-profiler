@@ -2277,3 +2277,100 @@ Full project test suite:
 
 M17.3 real analysis completed successfully against the current project
 database and produced the documented read-benefit and cost evidence.
+
+## M17.4 — Cost-Aware Recommendation Analysis
+
+### Objective
+
+Implement an analytical layer that evaluates whether
+recommendation read-benefit evidence can be meaningfully
+considered alongside index storage and maintenance costs.
+
+### Implementation
+
+Added:
+
+- `collector/cost_aware_recommendation_analyzer.py`
+- `tests/test_cost_aware_recommendation_analyzer.py`
+- `m17_4_real_analysis.py`
+
+The analyzer provides:
+
+- evidence-completeness classification;
+- explicit detection of read evidence;
+- explicit detection of same-index cost linkage;
+- cost-aware evidence classification;
+- historical recommendation analysis;
+- cost-aware summary generation;
+- methodological reporting.
+
+### Methodological Boundary
+
+Historical recommendation observations are not assigned
+M17.1/M17.2 cost measurements unless the cost evidence
+belongs to the same experimental index.
+
+No unsupported cost-benefit ratio or cost-adjusted
+recommendation score is generated.
+
+M17.4 does not modify:
+
+- recommendation scores;
+- candidate generation;
+- recommendation priorities;
+- workload prioritization;
+- benchmark execution;
+- `benchmark_results`.
+
+### Real Analysis
+
+The real M17.4 analysis produced:
+
+- Recommendation observations: 29
+- Read evidence available: 23
+- No read evidence: 6
+- Same-index cost linked: 0
+- Complete evidence: 0
+- Partial evidence: 0
+- Limited evidence: 23
+- Insufficient evidence: 6
+
+Cost-aware classifications:
+
+- Benefit with low cost: 0
+- Benefit with measurable cost: 0
+- Low benefit with cost: 0
+- Negative benefit with cost: 0
+- Mixed evidence: 0
+
+### Research Finding
+
+The current project contains historical read-performance
+evidence and controlled index-cost evidence, but no
+recommendation observations currently have same-index linked
+storage and maintenance measurements.
+
+Therefore, no complete cost-aware classification is assigned
+to the historical recommendation set.
+
+This result establishes an evidence boundary rather than
+indicating an implementation failure.
+
+### Validation
+
+M17.4 validation completed with:
+
+- 13 M17.4 tests passed;
+- 265 full-project tests passed;
+- Python compilation successful;
+- real M17.4 analysis completed successfully.
+
+### Design Decision
+
+M17.4 remains an analytical layer. The existing
+recommendation engine is deliberately unchanged.
+
+A future cost-aware optimization mechanism should only be
+introduced after controlled experiments provide linked
+read-benefit, storage-cost, and maintenance-cost evidence
+for the same index/workload context.
