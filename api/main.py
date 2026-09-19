@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from api.routes import cost_benefit
 
 from api.routes.overview import (
     router as overview_router,
@@ -45,6 +46,8 @@ app.include_router(
 )
 app.include_router(
     workloads_router)
+app.include_router(
+    cost_benefit.router)
 
 
 @app.get("/api/health")
