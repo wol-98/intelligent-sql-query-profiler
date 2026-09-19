@@ -145,3 +145,83 @@ The measured storage and maintenance observations are not currently used to
 modify candidate generation, recommendation scores, or recommendation
 priorities. They provide empirical evidence for the later read-benefit versus
 cost analysis in M17.3.
+
+### M17.3 — Read Benefit vs Cost Analysis
+
+M17.3 combines the measured cost evidence from M17.1 and M17.2 with the
+existing validated read-performance evidence from the recommendation
+benchmark dataset.
+
+The analysis deliberately keeps these evidence sources separate because the
+read-benefit observations and the M17.1/M17.2 cost measurements were not
+collected for the same experimental index.
+
+#### Read-benefit evidence
+
+The existing recommendation-quality dataset contains:
+
+| Metric | Result |
+|---|---:|
+| Evaluated observations | 23 |
+| Successful | 13 |
+| Neutral | 6 |
+| Unsuccessful | 4 |
+| Average improvement | 33.19% |
+| Median improvement | 23.17% |
+| Positive-benefit observations | 19 |
+| Index-used rate | 78.26% |
+
+The read-benefit metric follows the existing M14 evaluation rule: the stored
+median improvement is preferred when available, with the stored improvement
+percentage used as the documented fallback when median fields are NULL. No
+median values are fabricated.
+
+#### Cost evidence
+
+The controlled M17 experiments provide:
+
+| Metric | Result |
+|---|---:|
+| Experimental index | `m17_1_idx_orders_customer_id` |
+| Table | `orders` |
+| Indexed column | `customer_id` |
+| Index size | 606,208 bytes |
+| Table size | 3,227,648 bytes |
+| Index/table ratio | 18.7817% |
+| Mean maintenance overhead | 76.4914% |
+| Median maintenance overhead | 3.43% |
+
+The M17.2 mean overhead is strongly affected by the observed variability in
+the indexed write measurements. The median is therefore retained alongside
+the mean rather than replacing it.
+
+#### Methodological boundary
+
+M17.3 does not assign the M17.1/M17.2 storage or maintenance measurements to
+the historical recommendation observations.
+
+In particular, the analysis does not calculate a per-recommendation
+read-benefit-per-storage metric or a combined cost-benefit score from these
+separate experiments.
+
+A combined cost-benefit metric would only be appropriate when read benefit,
+storage cost and maintenance cost have been measured for the same
+experimental index and workload.
+
+#### Interpretation
+
+M17.3 establishes an empirical foundation for cost-aware index analysis:
+
+- validated recommendations provide evidence that indexes can produce
+  measurable read-performance changes;
+- M17.1 demonstrates that an index has a measurable storage footprint;
+- M17.2 demonstrates that an index can also affect write-side execution cost;
+- the magnitude of these effects is workload- and experiment-dependent;
+- index usage alone does not establish that an index provides sufficient
+  benefit to justify its cost.
+
+The current recommendation score, candidate generation and recommendation
+priorities are not changed by M17.3.
+
+M17.3 therefore provides the analytical evidence required for the subsequent
+M17.4 cost-aware recommendation analysis.

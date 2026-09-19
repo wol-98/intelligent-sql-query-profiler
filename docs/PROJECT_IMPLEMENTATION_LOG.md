@@ -2181,8 +2181,99 @@ explicitly records variability.
 
 Full project test suite:
 
-- 241 tests passed
+- 252 tests passed
 - 0 failures
 
 M17 does not currently modify recommendation scores, candidate generation,
 or recommendation priorities.
+
+### M17.3 — Read Benefit vs Cost Analysis
+
+Implemented:
+
+- `collector/index_benefit_cost_analyzer.py`
+- `tests/test_index_benefit_cost_analyzer.py`
+- `m17_3_real_analysis.py`
+
+The M17.3 analytical layer combines two evidence streams:
+
+1. Controlled index cost measurements from M17.1 and M17.2.
+2. Existing validated read-performance observations from the M14
+   recommendation-quality dataset.
+
+The two evidence streams are intentionally not treated as measurements of the
+same index.
+
+#### Read-benefit evidence
+
+The real M17.3 analysis reused the established recommendation-quality
+pipeline and produced:
+
+- Evaluated observations: 23
+- Successful: 13
+- Neutral: 6
+- Unsuccessful: 4
+- Average improvement: 33.19%
+- Median improvement: 23.17%
+- Positive-benefit observations: 19
+- Index-used rate: 78.26%
+
+The existing M14 evaluation metric is preserved: median improvement is used
+when available, with the stored improvement percentage as the fallback when
+median benchmark fields are NULL.
+
+#### Cost evidence
+
+M17.3 reused the real M17.1 and M17.2 measurements:
+
+- Experimental index: `m17_1_idx_orders_customer_id`
+- Table: `orders`
+- Indexed column: `customer_id`
+- Index size: 606,208 bytes
+- Table size: 3,227,648 bytes
+- Index/table ratio: 18.7817%
+- Mean maintenance overhead: 76.4914%
+- Median maintenance overhead: 3.43%
+
+The M17.2 mean is substantially affected by variability in the indexed write
+measurements. Both mean and median are therefore preserved.
+
+#### Methodological decision
+
+M17.3 does not calculate a per-recommendation cost-benefit ratio.
+
+The historical read-benefit observations were not measured together with the
+M17.1 storage and M17.2 maintenance experiment for the same experimental
+index. Assigning those cost measurements to historical recommendations would
+therefore create an unsupported relationship.
+
+The analytical layer consequently reports the read-benefit and cost evidence
+as separate but related evidence streams.
+
+#### Design impact
+
+M17.3 is analytical only.
+
+It does not:
+
+- change candidate generation;
+- change recommendation scoring;
+- change recommendation priorities;
+- create or remove indexes;
+- execute new benchmark experiments;
+- write new benchmark results.
+
+The purpose of M17.3 is to establish the evidence base for the subsequent
+M17.4 cost-aware recommendation analysis.
+
+#### Validation
+
+Python compilation completed successfully.
+
+Full project test suite:
+
+- 252 tests passed
+- 0 failures
+
+M17.3 real analysis completed successfully against the current project
+database and produced the documented read-benefit and cost evidence.
