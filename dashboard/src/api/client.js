@@ -17,3 +17,7 @@ export function getOverview() {
 export function getWorkloads() {
   return request('/api/workloads')
 }
+
+export function getCostBenefits() {
+  return request('/api/cost-benefit')
+}

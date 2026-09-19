@@ -27,7 +27,7 @@ const navigationItems = [
   {
     id: 'cost-benefit',
     label: 'Cost & Benefit',
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'composite-indexes',
