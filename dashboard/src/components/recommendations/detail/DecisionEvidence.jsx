@@ -8,26 +8,28 @@ function DecisionEvidence({ recommendation }) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <EvidenceSection
+        eyebrow="05 · Production framework"
         title="Production decision"
         description="Decision produced by the M19 production optimization framework."
+        accent="amber"
       >
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/65 p-4">
+            <p className="text-[0.62rem] font-bold uppercase tracking-[0.08em] text-slate-400">
               Decision state
             </p>
 
-            <div className="mt-2">
+            <div className="mt-3">
               <StatusBadge value={decision.state} />
             </div>
           </div>
 
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/65 p-4">
+            <p className="text-[0.62rem] font-bold uppercase tracking-[0.08em] text-slate-400">
               Safety guardrail
             </p>
 
-            <div className="mt-2">
+            <div className="mt-3">
               <StatusBadge value={decision.guardrail} />
             </div>
           </div>
@@ -35,10 +37,12 @@ function DecisionEvidence({ recommendation }) {
       </EvidenceSection>
 
       <EvidenceSection
+        eyebrow="06 · Traceability"
         title="Evidence provenance"
         description="Traceability between this recommendation and linked experimental evidence."
+        accent="cyan"
       >
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           <EvidenceField
             label="Provenance status"
             value={provenance.status}

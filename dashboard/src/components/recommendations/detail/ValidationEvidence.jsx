@@ -23,31 +23,34 @@ function ValidationEvidence({ recommendation }) {
 
   return (
     <EvidenceSection
+      eyebrow="02 · Experimental validation"
       title="Validation evidence"
       description="Measured experimental evidence from the recommendation benchmark."
+      accent="violet"
     >
-      <div className="mb-5 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         <StatusBadge value={validation.outcome} />
 
         {validation.index_used !== null &&
           validation.index_used !== undefined && (
-            <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
+            <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[0.68rem] font-semibold text-slate-600">
               Index {validation.index_used ? 'used' : 'not used'}
             </span>
           )}
 
         {validation.plan_changed !== null &&
           validation.plan_changed !== undefined && (
-            <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
+            <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[0.68rem] font-semibold text-slate-600">
               Plan {validation.plan_changed ? 'changed' : 'unchanged'}
             </span>
           )}
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <EvidenceField
           label="Average improvement"
           value={formatPercent(validation.improvement)}
+          emphasize
         />
 
         <EvidenceField

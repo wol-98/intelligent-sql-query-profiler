@@ -70,10 +70,12 @@ function QueryEvidence({ recommendation }) {
 
   return (
     <EvidenceSection
+      eyebrow="01 · Query context"
       title="Query & workload"
       description="The workload context associated with this recommendation."
+      accent="blue"
     >
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <EvidenceField
           label="Query type"
           value={query.query_type}
@@ -96,6 +98,7 @@ function QueryEvidence({ recommendation }) {
               ? 'Loading...'
               : formatPercent(displayWorkload?.time_share)
           }
+          emphasize
         />
 
         <EvidenceField
@@ -114,17 +117,23 @@ function QueryEvidence({ recommendation }) {
         />
       </div>
 
-      <div className="mt-6">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-          Query template
-        </p>
+      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-950 p-4">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-[0.62rem] font-bold uppercase tracking-[0.08em] text-slate-400">
+            Query template
+          </p>
 
-        <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-900 p-4 text-xs leading-6 text-slate-100">
+          <span className="rounded-md bg-white/10 px-2 py-1 text-[0.6rem] font-semibold text-slate-400">
+            NORMALIZED
+          </span>
+        </div>
+
+        <pre className="overflow-x-auto text-xs leading-6 text-slate-100">
           {query.template || 'Not available'}
         </pre>
       </div>
 
-      <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <EvidenceField
           label="Validation outcome"
           value={validation.outcome}
@@ -157,4 +166,5 @@ function QueryEvidence({ recommendation }) {
     </EvidenceSection>
   )
 }
+
 export default QueryEvidence
