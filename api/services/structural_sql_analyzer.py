@@ -20,6 +20,9 @@ class StructuralSQLAnalyzer:
       - generate optimization candidates,
       - benchmark alternatives, or
       - make optimization decisions.
+
+    M21.4.2 adds query-block-aware structural evidence while
+    preserving the existing StructuralAnalysis contract.
     """
 
     def analyze(
@@ -31,6 +34,10 @@ class StructuralSQLAnalyzer:
     ) -> StructuralAnalysis:
         """
         Return a structural description of the supplied SQL expression.
+
+        Structural findings are generated independently for each SELECT
+        query block so that nested queries and CTEs retain their own
+        structural context.
         """
 
         layers: list[StructuralLayer] = []
@@ -40,251 +47,276 @@ class StructuralSQLAnalyzer:
             if layer not in layers:
                 layers.append(layer)
 
+        def sql_text(node: exp.Expression | None) -> str | None:
+            if node is None:
+                return None
+
+            return node.sql(dialect="postgres")
+
+        def add_finding(
+            *,
+            layer: StructuralLayer,
+            finding_type: str,
+            description: str,
+            evidence: str | None,
+        ) -> None:
+            add_layer(layer)
+
+            findings.append(
+                StructuralFinding(
+                    layer=layer,
+                    finding_type=finding_type,
+                    severity="INFO",
+                    description=description,
+                    evidence=evidence,
+                )
+            )
+
         # ---------------------------------------------------------
-        # SELECT
+        # Query blocks
         # ---------------------------------------------------------
 
         selects = list(expression.find_all(exp.Select))
 
-        if selects:
-            add_layer(StructuralLayer.SELECT)
+        # ---------------------------------------------------------
+        # Process every SELECT query block independently.
+        # ---------------------------------------------------------
 
-            findings.append(
-                StructuralFinding(
-                    layer=StructuralLayer.SELECT,
-                    finding_type="SELECT_LIST",
-                    severity="INFO",
-                    description=(
-                        f"Query contains {len(selects)} SELECT "
-                        f"query block(s)."
-                    ),
-                    evidence=(
-                        f"select_blocks={len(selects)}"
-                    ),
-                )
+        for block_number, select in enumerate(selects, start=1):
+            block_prefix = f"query_block={block_number}; "
+
+            # -----------------------------------------------------
+            # SELECT
+            # -----------------------------------------------------
+
+            select_expressions = select.args.get("expressions") or []
+
+            select_evidence = ", ".join(
+                sql_text(item) or ""
+                for item in select_expressions
             )
 
-        # ---------------------------------------------------------
-        # FROM
-        # ---------------------------------------------------------
+            add_finding(
+                layer=StructuralLayer.SELECT,
+                finding_type="SELECT_LIST",
+                description=(
+                    f"SELECT query block {block_number} contains "
+                    f"{len(select_expressions)} select expression(s)."
+                ),
+                evidence=(
+                    block_prefix
+                    + f"expressions={select_evidence}"
+                ),
+            )
 
-        tables_detected = list(expression.find_all(exp.Table))
+            # -----------------------------------------------------
+            # FROM
+            # -----------------------------------------------------
 
-        if tables_detected:
-            add_layer(StructuralLayer.FROM)
+            from_clause = select.args.get("from")
 
-            table_names = [
-                table.sql(dialect="postgres")
-                for table in tables_detected
-            ]
-
-            findings.append(
-                StructuralFinding(
+            if from_clause is not None:
+                add_finding(
                     layer=StructuralLayer.FROM,
                     finding_type="TABLE_SOURCE",
-                    severity="INFO",
                     description=(
-                        f"Query references {len(tables_detected)} "
-                        f"table source(s)."
+                        f"SELECT query block {block_number} "
+                        "contains a FROM source."
                     ),
-                    evidence=", ".join(table_names),
+                    evidence=(
+                        block_prefix
+                        + f"from={sql_text(from_clause)}"
+                    ),
                 )
-            )
+
+            # -----------------------------------------------------
+            # JOIN
+            # -----------------------------------------------------
+
+            joins = select.args.get("joins") or []
+
+            for join_number, join in enumerate(joins, start=1):
+                add_finding(
+                    layer=StructuralLayer.JOIN,
+                    finding_type="JOIN",
+                    description=(
+                        f"SELECT query block {block_number} "
+                        f"contains JOIN {join_number}."
+                    ),
+                    evidence=(
+                        block_prefix
+                        + f"join={sql_text(join)}"
+                    ),
+                )
+
+            # -----------------------------------------------------
+            # WHERE
+            # -----------------------------------------------------
+
+            where = select.args.get("where")
+
+            if where is not None:
+                add_finding(
+                    layer=StructuralLayer.WHERE,
+                    finding_type="FILTER",
+                    description=(
+                        f"SELECT query block {block_number} "
+                        "contains a WHERE filter."
+                    ),
+                    evidence=(
+                        block_prefix
+                        + f"where={sql_text(where)}"
+                    ),
+                )
+
+            # -----------------------------------------------------
+            # GROUP BY
+            # -----------------------------------------------------
+
+            group = select.args.get("group")
+
+            if group is not None:
+                add_finding(
+                    layer=StructuralLayer.GROUP_BY,
+                    finding_type="GROUPING",
+                    description=(
+                        f"SELECT query block {block_number} "
+                        "contains GROUP BY."
+                    ),
+                    evidence=(
+                        block_prefix
+                        + f"group_by={sql_text(group)}"
+                    ),
+                )
+
+            # -----------------------------------------------------
+            # HAVING
+            # -----------------------------------------------------
+
+            having = select.args.get("having")
+
+            if having is not None:
+                add_finding(
+                    layer=StructuralLayer.HAVING,
+                    finding_type="AGGREGATE_FILTER",
+                    description=(
+                        f"SELECT query block {block_number} "
+                        "contains HAVING."
+                    ),
+                    evidence=(
+                        block_prefix
+                        + f"having={sql_text(having)}"
+                    ),
+                )
+
+            # -----------------------------------------------------
+            # WINDOW
+            # -----------------------------------------------------
+
+            windows = list(select.find_all(exp.Window))
+
+            # Keep windows belonging to this SELECT block only.
+            windows = [
+                window
+                for window in windows
+                if window.find_ancestor(exp.Select) is select
+            ]
+
+            for window_number, window in enumerate(windows, start=1):
+                add_finding(
+                    layer=StructuralLayer.WINDOW,
+                    finding_type="WINDOW_FUNCTION",
+                    description=(
+                        f"SELECT query block {block_number} "
+                        f"contains window expression {window_number}."
+                    ),
+                    evidence=(
+                        block_prefix
+                        + f"window={sql_text(window)}"
+                    ),
+                )
+
+            # -----------------------------------------------------
+            # ORDER BY
+            # -----------------------------------------------------
+
+            order = select.args.get("order")
+
+            if order is not None:
+                add_finding(
+                    layer=StructuralLayer.ORDER_BY,
+                    finding_type="ORDERING",
+                    description=(
+                        f"SELECT query block {block_number} "
+                        "contains ORDER BY."
+                    ),
+                    evidence=(
+                        block_prefix
+                        + f"order_by={sql_text(order)}"
+                    ),
+                )
+
+            # -----------------------------------------------------
+            # LIMIT
+            # -----------------------------------------------------
+
+            limit = select.args.get("limit")
+            offset = select.args.get("offset")
+
+            if limit is not None or offset is not None:
+                evidence_parts: list[str] = []
+
+                if limit is not None:
+                    evidence_parts.append(
+                        f"limit={sql_text(limit)}"
+                    )
+
+                if offset is not None:
+                    evidence_parts.append(
+                        f"offset={sql_text(offset)}"
+                    )
+
+                add_finding(
+                    layer=StructuralLayer.LIMIT_OFFSET,
+                    finding_type="ROW_LIMITING",
+                    description=(
+                        f"SELECT query block {block_number} "
+                        "contains LIMIT and/or OFFSET."
+                    ),
+                    evidence=(
+                        block_prefix
+                        + "; ".join(evidence_parts)
+                    ),
+                )
 
         # ---------------------------------------------------------
-        # JOIN
+        # Global structural counts
+        #
+        # These preserve the M21.4.1 StructuralAnalysis contract.
         # ---------------------------------------------------------
 
         joins = list(expression.find_all(exp.Join))
-
-        if joins:
-            add_layer(StructuralLayer.JOIN)
-
-            findings.append(
-                StructuralFinding(
-                    layer=StructuralLayer.JOIN,
-                    finding_type="JOIN",
-                    severity="INFO",
-                    description=(
-                        f"Query contains {len(joins)} JOIN operation(s)."
-                    ),
-                    evidence=f"join_count={len(joins)}",
-                )
-            )
-
-        # ---------------------------------------------------------
-        # WHERE
-        # ---------------------------------------------------------
-
-        wheres = list(expression.find_all(exp.Where))
-
-        if wheres:
-            add_layer(StructuralLayer.WHERE)
-
-            findings.append(
-                StructuralFinding(
-                    layer=StructuralLayer.WHERE,
-                    finding_type="FILTER",
-                    severity="INFO",
-                    description=(
-                        f"Query contains {len(wheres)} WHERE "
-                        f"filter clause(s)."
-                    ),
-                    evidence=f"where_count={len(wheres)}",
-                )
-            )
-
-        # ---------------------------------------------------------
-        # HAVING
-        # ---------------------------------------------------------
-
-        havings = list(expression.find_all(exp.Having))
-
-        if havings:
-            add_layer(StructuralLayer.HAVING)
-
-            findings.append(
-                StructuralFinding(
-                    layer=StructuralLayer.HAVING,
-                    finding_type="AGGREGATE_FILTER",
-                    severity="INFO",
-                    description=(
-                        f"Query contains {len(havings)} HAVING "
-                        f"clause(s)."
-                    ),
-                    evidence=f"having_count={len(havings)}",
-                )
-            )
-
-        # ---------------------------------------------------------
-        # GROUP BY
-        # ---------------------------------------------------------
-
-        groups = list(expression.find_all(exp.Group))
-
-        if groups:
-            add_layer(StructuralLayer.GROUP_BY)
-
-            findings.append(
-                StructuralFinding(
-                    layer=StructuralLayer.GROUP_BY,
-                    finding_type="GROUPING",
-                    severity="INFO",
-                    description=(
-                        f"Query contains {len(groups)} GROUP BY "
-                        f"clause(s)."
-                    ),
-                    evidence=f"group_by_count={len(groups)}",
-                )
-            )
-
-        # ---------------------------------------------------------
-        # WINDOW
-        # ---------------------------------------------------------
-
+        subqueries = list(expression.find_all(exp.Subquery))
+        aggregates = list(expression.find_all(exp.AggFunc))
         windows = list(expression.find_all(exp.Window))
 
-        if windows:
-            add_layer(StructuralLayer.WINDOW)
+        has_order_by = any(
+            select.args.get("order") is not None
+            for select in selects
+        )
 
-            findings.append(
-                StructuralFinding(
-                    layer=StructuralLayer.WINDOW,
-                    finding_type="WINDOW_FUNCTION",
-                    severity="INFO",
-                    description=(
-                        f"Query contains {len(windows)} "
-                        f"window function expression(s)."
-                    ),
-                    evidence=f"window_count={len(windows)}",
-                )
-            )
+        has_limit = any(
+            select.args.get("limit") is not None
+            for select in selects
+        )
 
-        # ---------------------------------------------------------
-        # ORDER BY
-        # ---------------------------------------------------------
-
-        orders = list(expression.find_all(exp.Order))
-
-        has_order_by = bool(orders)
-
-        if has_order_by:
-            add_layer(StructuralLayer.ORDER_BY)
-
-            findings.append(
-                StructuralFinding(
-                    layer=StructuralLayer.ORDER_BY,
-                    finding_type="ORDERING",
-                    severity="INFO",
-                    description=(
-                        f"Query contains {len(orders)} ORDER BY "
-                        f"clause(s)."
-                    ),
-                    evidence=f"order_by_count={len(orders)}",
-                )
-            )
+        has_offset = any(
+            select.args.get("offset") is not None
+            for select in selects
+        )
 
         # ---------------------------------------------------------
-        # LIMIT / OFFSET
-        # ---------------------------------------------------------
-
-        limits = list(expression.find_all(exp.Limit))
-        offsets = list(expression.find_all(exp.Offset))
-
-        has_limit = bool(limits)
-        has_offset = bool(offsets)
-
-        if has_limit or has_offset:
-            add_layer(StructuralLayer.LIMIT_OFFSET)
-
-            evidence_parts = []
-
-            if has_limit:
-                evidence_parts.append(
-                    f"limit_count={len(limits)}"
-                )
-
-            if has_offset:
-                evidence_parts.append(
-                    f"offset_count={len(offsets)}"
-                )
-
-            findings.append(
-                StructuralFinding(
-                    layer=StructuralLayer.LIMIT_OFFSET,
-                    finding_type="ROW_LIMITING",
-                    severity="INFO",
-                    description=(
-                        "Query contains LIMIT and/or OFFSET."
-                    ),
-                    evidence=", ".join(evidence_parts),
-                )
-            )
-
-        # ---------------------------------------------------------
-        # SUBQUERY
-        # ---------------------------------------------------------
-
-        subqueries = list(expression.find_all(exp.Subquery))
-
-        if subqueries:
-            add_layer(StructuralLayer.SUBQUERY)
-
-            findings.append(
-                StructuralFinding(
-                    layer=StructuralLayer.SUBQUERY,
-                    finding_type="SUBQUERY",
-                    severity="INFO",
-                    description=(
-                        f"Query contains {len(subqueries)} "
-                        f"subquery expression(s)."
-                    ),
-                    evidence=f"subquery_count={len(subqueries)}",
-                )
-            )
-
-        # ---------------------------------------------------------
-        # SET OPERATION
+        # Set operations
         # ---------------------------------------------------------
 
         set_operations = list(
@@ -298,35 +330,41 @@ class StructuralSQLAnalyzer:
         )
 
         if set_operations:
-            add_layer(StructuralLayer.SET_OPERATION)
-
             operation_names = [
                 type(operation).__name__.upper()
                 for operation in set_operations
             ]
 
-            findings.append(
-                StructuralFinding(
-                    layer=StructuralLayer.SET_OPERATION,
-                    finding_type="SET_OPERATION",
-                    severity="INFO",
-                    description=(
-                        f"Query contains {len(set_operations)} "
-                        f"set operation(s)."
-                    ),
-                    evidence=", ".join(operation_names),
-                )
+            add_finding(
+                layer=StructuralLayer.SET_OPERATION,
+                finding_type="SET_OPERATION",
+                description=(
+                    f"Query contains {len(set_operations)} "
+                    "set operation(s)."
+                ),
+                evidence=", ".join(operation_names),
             )
 
         # ---------------------------------------------------------
-        # Aggregates
+        # Subqueries
         # ---------------------------------------------------------
 
-        aggregates = list(expression.find_all(exp.AggFunc))
+        if subqueries:
+            add_finding(
+                layer=StructuralLayer.SUBQUERY,
+                finding_type="SUBQUERY",
+                description=(
+                    f"Query contains {len(subqueries)} "
+                    "subquery expression(s)."
+                ),
+                evidence=f"subquery_count={len(subqueries)}",
+            )
 
         # ---------------------------------------------------------
         # Tables
         # ---------------------------------------------------------
+
+        tables_detected = list(expression.find_all(exp.Table))
 
         detected_tables = [
             table.name
@@ -334,7 +372,11 @@ class StructuralSQLAnalyzer:
             if table.name
         ]
 
-        resolved_tables = tables if tables is not None else detected_tables
+        resolved_tables = (
+            tables
+            if tables is not None
+            else detected_tables
+        )
 
         return StructuralAnalysis(
             status=StructuralAnalysisStatus.ANALYZED,

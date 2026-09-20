@@ -16,6 +16,14 @@ def layers(result):
     return set(result.layers_detected)
 
 
+def findings_for(result, layer):
+    return [
+        finding
+        for finding in result.findings
+        if finding.layer == layer
+    ]
+
+
 def test_basic_select_and_where():
     result = analyze(
         """
@@ -39,7 +47,37 @@ def test_basic_select_and_where():
     assert result.has_offset is False
 
 
-def test_join_and_where():
+def test_select_finding_contains_select_expression_evidence():
+    result = analyze(
+        """
+        SELECT customer_id, total_amount
+        FROM orders;
+        """
+    )
+
+    findings = findings_for(result, StructuralLayer.SELECT)
+
+    assert len(findings) == 1
+    assert "customer_id" in findings[0].evidence
+    assert "total_amount" in findings[0].evidence
+    assert "query_block=1" in findings[0].evidence
+
+
+def test_from_finding_contains_source_evidence():
+    result = analyze(
+        """
+        SELECT customer_id
+        FROM orders;
+        """
+    )
+
+    findings = findings_for(result, StructuralLayer.FROM)
+
+    assert len(findings) == 1
+    assert "FROM orders" in findings[0].evidence
+
+
+def test_join_finding_contains_join_expression():
     result = analyze(
         """
         SELECT o.order_id, c.name
@@ -50,12 +88,28 @@ def test_join_and_where():
         """
     )
 
-    assert StructuralLayer.SELECT in layers(result)
-    assert StructuralLayer.FROM in layers(result)
-    assert StructuralLayer.JOIN in layers(result)
-    assert StructuralLayer.WHERE in layers(result)
+    findings = findings_for(result, StructuralLayer.JOIN)
+
+    assert len(findings) == 1
+    assert "JOIN customers AS c" in findings[0].evidence
+    assert "o.customer_id = c.customer_id" in findings[0].evidence
 
     assert result.joins_detected == 1
+
+
+def test_where_finding_contains_predicate():
+    result = analyze(
+        """
+        SELECT customer_id
+        FROM orders
+        WHERE status = 'completed';
+        """
+    )
+
+    findings = findings_for(result, StructuralLayer.WHERE)
+
+    assert len(findings) == 1
+    assert "status = 'completed'" in findings[0].evidence
 
 
 def test_aggregation_group_having_order_limit_offset():
@@ -84,8 +138,31 @@ def test_aggregation_group_having_order_limit_offset():
     assert result.has_limit is True
     assert result.has_offset is True
 
+    assert "customer_id" in findings_for(
+        result,
+        StructuralLayer.GROUP_BY,
+    )[0].evidence
 
-def test_window_function():
+    assert "COUNT(*) > 2" in findings_for(
+        result,
+        StructuralLayer.HAVING,
+    )[0].evidence
+
+    assert "order_count DESC" in findings_for(
+        result,
+        StructuralLayer.ORDER_BY,
+    )[0].evidence
+
+    limit_evidence = findings_for(
+        result,
+        StructuralLayer.LIMIT_OFFSET,
+    )[0].evidence
+
+    assert "LIMIT 10" in limit_evidence
+    assert "OFFSET 5" in limit_evidence
+
+
+def test_window_function_contains_expression_evidence():
     result = analyze(
         """
         SELECT
@@ -99,14 +176,16 @@ def test_window_function():
         """
     )
 
-    assert StructuralLayer.SELECT in layers(result)
-    assert StructuralLayer.FROM in layers(result)
-    assert StructuralLayer.WINDOW in layers(result)
+    findings = findings_for(result, StructuralLayer.WINDOW)
+
+    assert len(findings) == 1
+    assert "ROW_NUMBER()" in findings[0].evidence
+    assert "PARTITION BY customer_id" in findings[0].evidence
 
     assert result.window_functions_detected == 1
 
 
-def test_subquery():
+def test_subquery_has_separate_query_block_evidence():
     result = analyze(
         """
         SELECT customer_id
@@ -119,12 +198,76 @@ def test_subquery():
         """
     )
 
-    assert StructuralLayer.SELECT in layers(result)
-    assert StructuralLayer.FROM in layers(result)
-    assert StructuralLayer.WHERE in layers(result)
-    assert StructuralLayer.SUBQUERY in layers(result)
+    select_findings = findings_for(
+        result,
+        StructuralLayer.SELECT,
+    )
+
+    where_findings = findings_for(
+        result,
+        StructuralLayer.WHERE,
+    )
+
+    assert len(select_findings) == 2
+    assert len(where_findings) == 2
+
+    evidence = [
+        finding.evidence
+        for finding in where_findings
+    ]
+
+    assert any(
+        "query_block=1" in value
+        and "customer_id IN" in value
+        for value in evidence
+    )
+
+    assert any(
+        "query_block=2" in value
+        and "NOT name IS NULL" in value
+        for value in evidence
+    )
 
     assert result.subqueries_detected == 1
+
+
+def test_cte_and_outer_query_have_separate_where_findings():
+    result = analyze(
+        """
+        WITH recent AS (
+            SELECT customer_id, order_date
+            FROM orders
+            WHERE order_date >= DATE '2026-01-01'
+        )
+        SELECT customer_id, order_date
+        FROM recent
+        WHERE customer_id > 10;
+        """
+    )
+
+    where_findings = findings_for(
+        result,
+        StructuralLayer.WHERE,
+    )
+
+    assert len(where_findings) == 2
+
+    evidence = [
+        finding.evidence
+        for finding in where_findings
+    ]
+
+    assert any(
+        "order_date >=" in value
+        for value in evidence
+    )
+
+    assert any(
+        "customer_id > 10" in value
+        for value in evidence
+    )
+
+    assert result.subqueries_detected == 0
 
 
 def test_set_operation():
@@ -140,26 +283,13 @@ def test_set_operation():
     assert StructuralLayer.FROM in layers(result)
     assert StructuralLayer.SET_OPERATION in layers(result)
 
-
-def test_cte_is_structurally_analyzed():
-    result = analyze(
-        """
-        WITH recent AS (
-            SELECT customer_id, order_date
-            FROM orders
-            WHERE order_date >= DATE '2026-01-01'
-        )
-        SELECT customer_id, order_date
-        FROM recent;
-        """
+    findings = findings_for(
+        result,
+        StructuralLayer.SET_OPERATION,
     )
 
-    assert result.status == StructuralAnalysisStatus.ANALYZED
-    assert StructuralLayer.SELECT in layers(result)
-    assert StructuralLayer.FROM in layers(result)
-    assert StructuralLayer.WHERE in layers(result)
-
-    assert result.subqueries_detected == 0
+    assert len(findings) == 1
+    assert "UNION" in findings[0].evidence
 
 
 def test_tables_can_be_supplied_by_caller():
