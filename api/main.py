@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import cost_benefit
 from api.routes import composite
 from api.routes import decisions
+from api.routes import queries
 
 from api.routes.overview import (
     router as overview_router,
@@ -58,6 +59,9 @@ app.include_router(
 
 app.include_router(
     decisions.router
+)
+app.include_router(
+    queries.router
 )
 @app.get("/api/health")
 def health_check() -> dict[str, str]:
