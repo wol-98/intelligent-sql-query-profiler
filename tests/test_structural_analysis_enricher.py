@@ -1,7 +1,10 @@
 """Tests for structural analysis classification integration."""
 
 from api.schemas.structural_optimization import (
+    AlternativeType,
+    CandidateStatus,
     EvidenceStatus,
+    OptimizationCandidate,
     OptimizationOpportunityStatus,
     OptimizationOpportunityType,
     OptimizationRelevance,
@@ -420,3 +423,248 @@ def test_classifier_can_be_injected() -> None:
 
     assert result.classifications == []
     assert classifier.received is analysis.findings
+def test_generate_candidates_integrates_full_structural_pipeline() -> None:
+    original_sql = (
+        "SELECT o.customer_id, COUNT(*) "
+        "FROM orders o "
+        "JOIN customers c "
+        "ON o.customer_id = c.customer_id "
+        "WHERE o.status = 'completed' "
+        "GROUP BY o.customer_id "
+        "ORDER BY COUNT(*) DESC "
+        "LIMIT 10"
+    )
+
+    analysis = StructuralAnalysis(
+        query=original_sql,
+        status=StructuralAnalysisStatus.ANALYZED,
+        findings=[
+            _finding(
+                "SELECT",
+                "expressions=o.customer_id, COUNT(*)",
+            ),
+            _finding(
+                "FROM",
+                "from=orders AS o",
+            ),
+            _finding(
+                "JOIN",
+                "join=JOIN customers AS c ON "
+                "o.customer_id = c.customer_id",
+            ),
+            _finding(
+                "WHERE",
+                "where=WHERE o.status = 'completed'",
+            ),
+            _finding(
+                "GROUP_BY",
+                "group_by=GROUP BY o.customer_id",
+            ),
+            _finding(
+                "ORDER_BY",
+                "order_by=ORDER BY COUNT(*) DESC",
+            ),
+            _finding(
+                "LIMIT_OFFSET",
+                "limit=LIMIT 10",
+            ),
+        ],
+    )
+
+    result = StructuralAnalysisEnricher().generate_candidates(
+        analysis,
+        original_sql,
+    )
+
+    assert len(result) == 5
+
+    assert [
+        candidate.alternative_type
+        for candidate in result
+    ] == [
+        AlternativeType.INDEX,
+        AlternativeType.INDEX,
+        AlternativeType.INDEX,
+        AlternativeType.INDEX,
+        AlternativeType.INDEX,
+    ]
+
+    assert [
+        candidate.source_layer
+        for candidate in result
+    ] == [
+        "JOIN",
+        "WHERE",
+        "GROUP_BY",
+        "ORDER_BY",
+        "LIMIT_OFFSET",
+    ]
+
+    assert [
+       candidate.candidate_id
+       for candidate in result
+    ] == [
+        "CAND-0001",
+        "CAND-0002",
+        "CAND-0003",
+        "CAND-0004",
+        "CAND-0005",
+    ]
+
+    assert all(
+        candidate.status == CandidateStatus.CANDIDATE
+        for candidate in result
+    )
+
+    assert all(
+        candidate.original_sql == original_sql
+        for candidate in result
+    )
+
+    assert all(
+        candidate.optimized_sql is None
+        and candidate.index_ddl is None
+        and candidate.architectural_recommendation is None
+        for candidate in result
+    )
+
+
+def test_generate_candidates_preserves_original_analysis() -> None:
+    original_sql = "SELECT customer_id FROM orders WHERE status = 'completed'"
+
+    analysis = StructuralAnalysis(
+        query=original_sql,
+        status=StructuralAnalysisStatus.ANALYZED,
+        findings=[
+            _finding(
+                "SELECT",
+                "expressions=customer_id",
+            ),
+            _finding(
+                "FROM",
+                "from=orders",
+            ),
+            _finding(
+                "WHERE",
+                "where=WHERE status = 'completed'",
+            ),
+        ],
+    )
+
+    original_values = [
+        finding.model_dump()
+        for finding in analysis.findings
+    ]
+
+    result = StructuralAnalysisEnricher().generate_candidates(
+        analysis,
+        original_sql,
+    )
+
+    assert result
+
+    assert [
+        finding.model_dump()
+        for finding in analysis.findings
+    ] == original_values
+
+
+def test_candidate_generator_can_be_injected() -> None:
+    class RecordingCandidateGenerator:
+        def __init__(self) -> None:
+            self.received_analysis = None
+            self.received_opportunities = None
+            self.received_original_sql = None
+
+        def generate(
+            self,
+            analysis,
+            opportunities,
+            original_sql,
+        ):
+            self.received_analysis = analysis
+            self.received_opportunities = opportunities
+            self.received_original_sql = original_sql
+
+            return [
+                OptimizationCandidate(
+                    candidate_id="CAND-TEST",
+                    alternative_type=AlternativeType.INDEX,
+                    status=CandidateStatus.CANDIDATE,
+                    title="Test candidate",
+                    rationale="Test integration candidate.",
+                    source_layer="WHERE",
+                    original_sql=original_sql,
+                )
+            ]
+
+    original_sql = (
+        "SELECT customer_id "
+        "FROM orders "
+        "WHERE status = 'completed'"
+    )
+
+    analysis = StructuralAnalysis(
+        query=original_sql,
+        status=StructuralAnalysisStatus.ANALYZED,
+        findings=[
+            _finding(
+                "SELECT",
+                "expressions=customer_id",
+            ),
+            _finding(
+                "FROM",
+                "from=orders",
+            ),
+            _finding(
+                "WHERE",
+                "where=WHERE status = 'completed'",
+            ),
+        ],
+    )
+
+    candidate_generator = RecordingCandidateGenerator()
+
+    enricher = StructuralAnalysisEnricher(
+        candidate_generator=candidate_generator,
+    )
+
+    result = enricher.generate_candidates(
+        analysis,
+        original_sql,
+    )
+
+    assert len(result) == 1
+    assert result[0].candidate_id == "CAND-TEST"
+    assert candidate_generator.received_analysis is analysis
+    assert candidate_generator.received_original_sql == original_sql
+    assert isinstance(
+        candidate_generator.received_opportunities,
+        StructuralOpportunityResult,
+    )
+
+
+def test_generate_candidates_skips_non_identified_opportunities() -> None:
+    original_sql = "SELECT customer_id FROM orders"
+
+    analysis = StructuralAnalysis(
+        query=original_sql,
+        status=StructuralAnalysisStatus.ANALYZED,
+        findings=[
+            _finding(
+                "SELECT",
+                "expressions=customer_id",
+            ),
+            _finding(
+                "FROM",
+                "from=orders",
+            ),
+        ],
+    )
+
+    result = StructuralAnalysisEnricher().generate_candidates(
+        analysis,
+        original_sql,
+    )
+
+    assert result == []
