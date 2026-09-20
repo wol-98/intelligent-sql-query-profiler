@@ -78,6 +78,48 @@ class StructuralAnalysis(BaseModel):
     has_offset: bool | None = None
 
 
+class StructuralFindingClassificationType(str, Enum):
+    DIRECT_OPERATION = "DIRECT_OPERATION"
+    PREDICATE = "PREDICATE"
+    RELATIONSHIP = "RELATIONSHIP"
+    AGGREGATION = "AGGREGATION"
+    WINDOW_OPERATION = "WINDOW_OPERATION"
+    ORDERING = "ORDERING"
+    ROW_LIMITING = "ROW_LIMITING"
+    NESTED_QUERY = "NESTED_QUERY"
+    SET_OPERATION = "SET_OPERATION"
+    SOURCE_DEFINITION = "SOURCE_DEFINITION"
+
+
+class EvidenceQuality(str, Enum):
+    EXACT = "EXACT"
+    STRUCTURED = "STRUCTURED"
+    SUMMARY = "SUMMARY"
+    MISSING = "MISSING"
+
+
+class OptimizationRelevance(str, Enum):
+    NOT_ASSESSED = "NOT_ASSESSED"
+    POTENTIALLY_RELEVANT = "POTENTIALLY_RELEVANT"
+    CONTEXTUAL = "CONTEXTUAL"
+    STRUCTURALLY_NEUTRAL = "STRUCTURALLY_NEUTRAL"
+
+
+class StructuralFindingClassification(BaseModel):
+    finding_index: int = Field(ge=0)
+    classification: StructuralFindingClassificationType
+    evidence_status: EvidenceStatus
+    evidence_quality: EvidenceQuality
+    optimization_relevance: OptimizationRelevance
+    rationale: str
+
+
+class StructuralClassificationResult(BaseModel):
+    classifications: list[StructuralFindingClassification] = Field(
+        default_factory=list
+    )
+
+
 class OptimizationCandidate(BaseModel):
     candidate_id: str
     alternative_type: AlternativeType
