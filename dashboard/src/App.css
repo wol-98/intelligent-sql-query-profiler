@@ -1,6 +1,6 @@
 /* ============================================================
    M20.12 Dashboard Design System
-   Visual layer only — no application or analytical logic.
+   Global visual layer only — no application or analytical logic.
    ============================================================ */
 
 .dashboard-shell {
@@ -48,6 +48,7 @@
   border-radius: 999px;
   background: rgba(59, 130, 246, 0.12);
   filter: blur(2px);
+  pointer-events: none;
 }
 
 .dashboard-brand-mark {
@@ -85,16 +86,16 @@
    ------------------------------------------------------------ */
 
 .dashboard-nav-section {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.35rem;
 }
 
 .dashboard-nav-label {
   padding: 0 0.75rem;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.5rem;
   color: #64748b;
   font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.11em;
+  font-weight: 750;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -106,7 +107,7 @@
   gap: 0.75rem;
   border: 1px solid transparent;
   border-radius: 0.7rem;
-  padding: 0.65rem 0.75rem;
+  padding: 0.67rem 0.75rem;
   color: #94a3b8;
   text-align: left;
   font-size: 0.82rem;
@@ -115,7 +116,8 @@
     background 160ms ease,
     border-color 160ms ease,
     color 160ms ease,
-    transform 160ms ease;
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .dashboard-nav-item:hover {
@@ -123,6 +125,11 @@
   border-color: rgba(148, 163, 184, 0.08);
   color: #e2e8f0;
   transform: translateX(1px);
+}
+
+.dashboard-nav-item:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.8);
+  outline-offset: 2px;
 }
 
 .dashboard-nav-item-active {
@@ -149,7 +156,9 @@
   flex-shrink: 0;
   border-radius: 999px;
   background: #475569;
-  transition: background 160ms ease;
+  transition:
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .dashboard-nav-item-active .dashboard-nav-dot {
@@ -163,7 +172,7 @@
 }
 
 /* ------------------------------------------------------------
-   Workspace / Page header
+   Workspace
    ------------------------------------------------------------ */
 
 .dashboard-main {
@@ -178,16 +187,20 @@
   padding: 1.5rem;
 }
 
+/* ------------------------------------------------------------
+   Page header
+   ------------------------------------------------------------ */
+
 .dashboard-page-header {
   position: relative;
   overflow: hidden;
   margin-bottom: 1.5rem;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.92);
   border-radius: 1rem;
   background:
     linear-gradient(
       135deg,
-      rgba(255, 255, 255, 0.98),
+      rgba(255, 255, 255, 0.99),
       rgba(248, 250, 252, 0.98)
     );
   padding: 1.5rem;
@@ -203,25 +216,27 @@
   top: -8rem;
   border-radius: 999px;
   background: rgba(59, 130, 246, 0.055);
+  pointer-events: none;
 }
 
 .dashboard-page-title {
   position: relative;
   z-index: 1;
   color: #0f172a;
-  font-size: 1.5rem;
+  font-size: clamp(1.45rem, 2vw, 1.7rem);
   font-weight: 750;
-  letter-spacing: -0.025em;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
 }
 
 .dashboard-page-description {
   position: relative;
   z-index: 1;
   max-width: 60rem;
-  margin-top: 0.35rem;
+  margin-top: 0.4rem;
   color: #64748b;
   font-size: 0.82rem;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 /* ------------------------------------------------------------
@@ -229,7 +244,7 @@
    ------------------------------------------------------------ */
 
 .dashboard-card {
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.92);
   border-radius: 0.9rem;
   background: #ffffff;
   box-shadow: var(--shadow-sm);
@@ -259,11 +274,11 @@
   margin-top: 0.3rem;
   color: #64748b;
   font-size: 0.78rem;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 /* ------------------------------------------------------------
-   Focus states
+   Shared interaction polish
    ------------------------------------------------------------ */
 
 .dashboard-focus:focus-visible {
@@ -271,9 +286,38 @@
   outline-offset: 2px;
 }
 
+.dashboard-content a {
+  transition:
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.dashboard-content button {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.dashboard-content button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
 /* ------------------------------------------------------------
    Responsive behaviour
    ------------------------------------------------------------ */
+
+@media (max-width: 1100px) {
+  .dashboard-sidebar {
+    width: 15.5rem;
+  }
+
+  .dashboard-content {
+    padding: 1.25rem;
+  }
+}
 
 @media (max-width: 900px) {
   .dashboard-sidebar {
@@ -302,5 +346,25 @@
 
   .dashboard-content {
     padding: 0.75rem;
+  }
+
+  .dashboard-page-header {
+    padding: 1.15rem;
+    border-radius: 0.85rem;
+  }
+}
+
+/* ------------------------------------------------------------
+   Reduced motion
+   ------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
