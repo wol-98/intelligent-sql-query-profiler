@@ -6,11 +6,13 @@ import DecisionEvidence from '../components/recommendations/detail/DecisionEvide
 import QueryEvidence from '../components/recommendations/detail/QueryEvidence'
 import RecommendationIdentity from '../components/recommendations/detail/RecommendationIdentity'
 import ValidationEvidence from '../components/recommendations/detail/ValidationEvidence'
+import BenchmarkEvidence from '../components/recommendations/detail/BenchmarkEvidence'
 
 function RecommendationDetailPage({
   recommendationId,
   sourcePage,
   onBack,
+  onViewBenchmark,
 }) {
   const [recommendation, setRecommendation] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -121,12 +123,16 @@ function RecommendationDetailPage({
 
       <ValidationEvidence recommendation={recommendation} />
 
+      <BenchmarkEvidence
+        recommendation={recommendation}
+        onViewBenchmark={onViewBenchmark}
+      />
+
       <CostEvidence recommendation={recommendation} />
 
       <DecisionEvidence recommendation={recommendation} />
     </div>
   )
 }
-
 
 export default RecommendationDetailPage

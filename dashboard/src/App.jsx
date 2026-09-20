@@ -38,12 +38,19 @@ function App() {
     if (selectedRecommendationId !== null) {
       return (
         <RecommendationDetailPage
-          recommendationId={selectedRecommendationId}
-          sourcePage={recommendationSourcePage}
-          onBack={closeRecommendation}
-        />
-      )
-    }
+         recommendationId={selectedRecommendationId}
+         sourcePage={recommendationSourcePage}
+         onBack={closeRecommendation}
+         onViewBenchmark={() => {
+           setActivePage('benchmarks')
+           setSelectedRecommendationId(null)
+           setRecommendationSourcePage(null)
+        }}
+      />
+    )
+  }
+
+  // existing page routing continues...
 
     if (activePage === 'workloads') {
       return (
