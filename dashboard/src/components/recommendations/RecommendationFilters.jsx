@@ -1,14 +1,14 @@
 function SelectFilter({ label, value, onChange, options }) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+    <label className="flex min-w-0 flex-col gap-2">
+      <span className="text-[0.65rem] font-bold uppercase tracking-[0.08em] text-slate-400">
         {label}
       </span>
 
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+        className="dashboard-focus w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 hover:bg-white focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -32,33 +32,53 @@ function RecommendationFilters({
   validation,
   onValidationChange,
   onClear,
+  activeFilterCount = 0,
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4">
-        <h3 className="text-base font-semibold text-slate-900">
-          Explore recommendations
-        </h3>
+    <section className="dashboard-card p-5">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-blue-500" />
 
-        <p className="mt-1 text-sm text-slate-500">
-          Filter the recommendation inventory without changing the underlying
-          recommendation order or scores.
-        </p>
+            <h3 className="dashboard-section-title">
+              Explore recommendations
+            </h3>
+          </div>
+
+          <p className="dashboard-section-description">
+            Filter the recommendation inventory without changing the underlying
+            recommendation order or scores.
+          </p>
+        </div>
+
+        {activeFilterCount > 0 && (
+          <div className="rounded-full bg-blue-50 px-3 py-1.5 text-[0.68rem] font-semibold text-blue-700">
+            {activeFilterCount} active filter
+            {activeFilterCount === 1 ? '' : 's'}
+          </div>
+        )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        <label className="flex flex-col gap-1.5 lg:col-span-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+      <div className="grid gap-4 lg:grid-cols-6">
+        <label className="flex min-w-0 flex-col gap-2 lg:col-span-2">
+          <span className="text-[0.65rem] font-bold uppercase tracking-[0.08em] text-slate-400">
             Search
           </span>
 
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search ID, table, column, index, or reason..."
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
-          />
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+              ⌕
+            </span>
+
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="ID, table, column, index, or reason..."
+              className="dashboard-focus w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3.5 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 hover:border-slate-300 hover:bg-white focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+            />
+          </div>
         </label>
 
         <SelectFilter
@@ -100,9 +120,7 @@ function RecommendationFilters({
             { value: 'INSUFFICIENT', label: 'Insufficient' },
           ]}
         />
-      </div>
 
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <SelectFilter
           label="Validation"
           value={validation}
@@ -115,11 +133,17 @@ function RecommendationFilters({
             { value: 'UNSAFE', label: 'Unsafe' },
           ]}
         />
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+        <p className="text-xs text-slate-400">
+          Filters affect only the displayed recommendation inventory.
+        </p>
 
         <button
           type="button"
           onClick={onClear}
-          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+          className="dashboard-focus rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
         >
           Clear filters
         </button>

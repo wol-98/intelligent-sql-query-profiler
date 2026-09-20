@@ -8,6 +8,13 @@ const styles = {
   INSUFFICIENT_EVIDENCE:
     'border-slate-200 bg-slate-100 text-slate-600',
 
+  HIGH:
+    'border-violet-200 bg-violet-50 text-violet-700',
+  MEDIUM:
+    'border-blue-200 bg-blue-50 text-blue-700',
+  LOW:
+    'border-slate-200 bg-slate-100 text-slate-600',
+
   COMPLETE:
     'border-emerald-200 bg-emerald-50 text-emerald-700',
   PARTIAL:
@@ -62,7 +69,7 @@ function StatusBadge({ value }) {
 
   return (
     <span
-      className={`inline-flex whitespace-nowrap items-center rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold tracking-wide ${style}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold tracking-wide ${style}`}
     >
       {formatLabel(value)}
     </span>
