@@ -120,6 +120,42 @@ class StructuralClassificationResult(BaseModel):
     )
 
 
+class OptimizationOpportunityType(str, Enum):
+    PREDICATE_ANALYSIS = "PREDICATE_ANALYSIS"
+    JOIN_ANALYSIS = "JOIN_ANALYSIS"
+    AGGREGATION_ANALYSIS = "AGGREGATION_ANALYSIS"
+    WINDOW_ANALYSIS = "WINDOW_ANALYSIS"
+    ORDERING_ANALYSIS = "ORDERING_ANALYSIS"
+    ROW_LIMITING_ANALYSIS = "ROW_LIMITING_ANALYSIS"
+    NESTED_QUERY_ANALYSIS = "NESTED_QUERY_ANALYSIS"
+
+
+class OptimizationOpportunityStatus(str, Enum):
+    IDENTIFIED = "IDENTIFIED"
+    NOT_ASSESSED = "NOT_ASSESSED"
+    STRUCTURALLY_NEUTRAL = "STRUCTURALLY_NEUTRAL"
+
+
+class OpportunityEvidenceScope(str, Enum):
+    FINDING = "FINDING"
+    CLASSIFICATION = "CLASSIFICATION"
+
+
+class StructuralOptimizationOpportunity(BaseModel):
+    finding_index: int = Field(ge=0)
+    opportunity_type: OptimizationOpportunityType
+    status: OptimizationOpportunityStatus
+    evidence_status: EvidenceStatus
+    evidence_scope: OpportunityEvidenceScope
+    rationale: str
+
+
+class StructuralOpportunityResult(BaseModel):
+    opportunities: list[StructuralOptimizationOpportunity] = Field(
+        default_factory=list
+    )
+
+
 class OptimizationCandidate(BaseModel):
     candidate_id: str
     alternative_type: AlternativeType
