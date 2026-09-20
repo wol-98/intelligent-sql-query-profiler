@@ -37,3 +37,11 @@ export async function getProductionDecision(recommendationId) {
 export async function getQueries() {
   return request("/api/queries");
 }
+
+export async function getBenchmarks() {
+  return request("/api/benchmarks");
+}
+
+export async function getBenchmark(benchmarkId) {
+  return request(`/api/benchmarks/${benchmarkId}`);
+}

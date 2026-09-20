@@ -22,7 +22,7 @@ const navigationItems = [
   {
     id: 'benchmarks',
     label: 'Benchmarks',
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'cost-benefit',

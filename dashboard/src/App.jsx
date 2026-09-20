@@ -3,6 +3,7 @@ import CostBenefitPage from './pages/CostBenefitPage'
 import CompositeIndexesPage from './pages/CompositeIndexesPage'
 import ProductionDecisionsPage from './pages/ProductionDecisionsPage'
 import QueriesPage from './pages/QueriesPage'
+import BenchmarksPage from './pages/BenchmarksPage'
 
 import AppShell from './components/layout/AppShell'
 import OverviewPage from './pages/OverviewPage'
@@ -75,7 +76,16 @@ function App() {
     />
   )
 }
-
+    if (activePage === 'benchmarks') {
+  return (
+    <BenchmarksPage
+      onNavigateToRecommendation={(recommendationId) => {
+        setActivePage('recommendations')
+        setSelectedRecommendationId(recommendationId)
+      }}
+    />
+  )
+}
     if (activePage === 'recommendations') {
       return (
         <RecommendationsPage
