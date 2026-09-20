@@ -2,6 +2,7 @@ import { useState } from 'react'
 import CostBenefitPage from './pages/CostBenefitPage'
 import CompositeIndexesPage from './pages/CompositeIndexesPage'
 import ProductionDecisionsPage from './pages/ProductionDecisionsPage'
+import QueriesPage from './pages/QueriesPage'
 
 import AppShell from './components/layout/AppShell'
 import OverviewPage from './pages/OverviewPage'
@@ -64,6 +65,16 @@ function App() {
     if (activePage === 'production-decisions') {
       return <ProductionDecisionsPage />
     }
+    if (activePage === 'queries') {
+      return (
+       <QueriesPage
+         onNavigateToRecommendation={(recommendationId) => {
+           setActivePage('recommendations')
+           setSelectedRecommendationId(recommendationId)
+      }}
+    />
+  )
+}
 
     if (activePage === 'recommendations') {
       return (

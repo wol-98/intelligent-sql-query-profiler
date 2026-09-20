@@ -33,3 +33,7 @@ export async function getProductionDecisions() {
 export async function getProductionDecision(recommendationId) {
   return request(`/api/decisions/${recommendationId}`);
 }
+
+export async function getQueries() {
+  return request("/api/queries");
+}

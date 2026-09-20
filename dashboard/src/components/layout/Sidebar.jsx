@@ -12,7 +12,7 @@ const navigationItems = [
   {
     id: 'queries',
     label: 'Queries',
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'workloads',
