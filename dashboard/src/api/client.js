@@ -25,3 +25,11 @@ export function getCostBenefits() {
 export function getCompositeIndexes() {
   return request('/api/composite-indexes')
 }
+
+export async function getProductionDecisions() {
+  return request("/api/decisions");
+}
+
+export async function getProductionDecision(recommendationId) {
+  return request(`/api/decisions/${recommendationId}`);
+}

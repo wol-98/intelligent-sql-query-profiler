@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import CostBenefitPage from './pages/CostBenefitPage'
 import CompositeIndexesPage from './pages/CompositeIndexesPage'
+import ProductionDecisionsPage from './pages/ProductionDecisionsPage'
 
 import AppShell from './components/layout/AppShell'
 import OverviewPage from './pages/OverviewPage'
@@ -55,8 +56,13 @@ function App() {
     if (activePage === 'cost-benefit') {
       return <CostBenefitPage />
     }
+
     if (activePage === 'composite-indexes') {
       return <CompositeIndexesPage />
+    }
+
+    if (activePage === 'production-decisions') {
+      return <ProductionDecisionsPage />
     }
 
     if (activePage === 'recommendations') {
@@ -78,6 +84,5 @@ function App() {
     </AppShell>
   )
 }
-
 
 export default App

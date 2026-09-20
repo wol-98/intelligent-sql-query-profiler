@@ -37,7 +37,7 @@ const navigationItems = [
   {
     id: 'production-decisions',
     label: 'Production Decisions',
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'provenance',
