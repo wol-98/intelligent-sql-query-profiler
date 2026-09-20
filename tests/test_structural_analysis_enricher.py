@@ -668,3 +668,176 @@ def test_generate_candidates_skips_non_identified_opportunities() -> None:
     )
 
     assert result == []
+
+
+def test_generate_candidates_integrates_nested_query_as_sql_rewrite() -> None:
+    original_sql = (
+        "SELECT customer_id "
+        "FROM orders "
+        "WHERE customer_id IN "
+        "(SELECT customer_id FROM customers WHERE name IS NOT NULL)"
+    )
+
+    analysis = StructuralAnalysis(
+        query=original_sql,
+        status=StructuralAnalysisStatus.ANALYZED,
+        findings=[
+            _finding(
+                "SUBQUERY",
+                "subquery_count=1",
+            ),
+            _finding(
+                "WHERE",
+                "query_block=1; "
+                "where=WHERE customer_id IN (...)",
+            ),
+            _finding(
+                "WHERE",
+                "query_block=2; where=WHERE NOT name IS NULL",
+            ),
+        ],
+    )
+
+    result = StructuralAnalysisEnricher().generate_candidates(
+        analysis,
+        original_sql,
+    )
+
+    assert len(result) == 3
+
+    assert result[0].source_layer == "SUBQUERY"
+    assert result[0].alternative_type == AlternativeType.SQL_REWRITE
+    assert result[0].status == CandidateStatus.CANDIDATE
+
+    assert [
+        candidate.candidate_id
+        for candidate in result
+    ] == [
+        "CAND-0001",
+        "CAND-0002",
+        "CAND-0003",
+    ]
+
+
+def test_generate_candidates_preserves_multiple_opportunity_order() -> None:
+    original_sql = (
+        "SELECT customer_id "
+        "FROM orders "
+        "WHERE status = 'completed' "
+        "ORDER BY customer_id "
+        "LIMIT 10"
+    )
+
+    analysis = StructuralAnalysis(
+        query=original_sql,
+        status=StructuralAnalysisStatus.ANALYZED,
+        findings=[
+            _finding("SELECT", "expressions=customer_id"),
+            _finding("FROM", "from=orders"),
+            _finding(
+                "WHERE",
+                "where=WHERE status = 'completed'",
+            ),
+            _finding(
+                "ORDER_BY",
+                "order_by=ORDER BY customer_id",
+            ),
+            _finding(
+                "LIMIT_OFFSET",
+                "limit=LIMIT 10",
+            ),
+        ],
+    )
+
+    result = StructuralAnalysisEnricher().generate_candidates(
+        analysis,
+        original_sql,
+    )
+
+    assert [
+        candidate.source_layer
+        for candidate in result
+    ] == [
+        "WHERE",
+        "ORDER_BY",
+        "LIMIT_OFFSET",
+    ]
+
+    assert [
+        candidate.candidate_id
+        for candidate in result
+    ] == [
+        "CAND-0001",
+        "CAND-0002",
+        "CAND-0003",
+    ]
+
+
+def test_generate_candidates_returns_empty_for_contextual_findings_only() -> None:
+    original_sql = "SELECT customer_id FROM orders"
+
+    analysis = StructuralAnalysis(
+        query=original_sql,
+        status=StructuralAnalysisStatus.ANALYZED,
+        findings=[
+            _finding(
+                "SELECT",
+                "expressions=customer_id",
+            ),
+            _finding(
+                "FROM",
+                "from=orders",
+            ),
+        ],
+    )
+
+    result = StructuralAnalysisEnricher().generate_candidates(
+        analysis,
+        original_sql,
+    )
+
+    assert result == []
+
+
+def test_generate_candidates_preserves_original_sql_exactly() -> None:
+    original_sql = (
+        "select  customer_id\n"
+        "FROM orders\n"
+        "where status = 'completed' "
+        "ORDER BY customer_id DESC"
+    )
+
+    analysis = StructuralAnalysis(
+        query=original_sql,
+        status=StructuralAnalysisStatus.ANALYZED,
+        findings=[
+            _finding(
+                "SELECT",
+                "expressions=customer_id",
+            ),
+            _finding(
+                "FROM",
+                "from=orders",
+            ),
+            _finding(
+                "WHERE",
+                "where=WHERE status = 'completed'",
+            ),
+            _finding(
+                "ORDER_BY",
+                "order_by=ORDER BY customer_id DESC",
+            ),
+        ],
+    )
+
+    result = StructuralAnalysisEnricher().generate_candidates(
+        analysis,
+        original_sql,
+    )
+
+    assert result
+
+    assert all(
+        candidate.original_sql == original_sql
+        for candidate in result
+    )
