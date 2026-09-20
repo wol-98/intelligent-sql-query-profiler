@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+
 import { getCompositeIndexes } from '../api/client'
 
 function formatPercent(value) {
@@ -17,173 +18,383 @@ function formatEffect(value) {
   return `${value > 0 ? '+' : ''}${value.toFixed(2)} pp`
 }
 
-function UsageBadge({ used }) {
+function effectTone(value) {
+  if (value === null || value === undefined) {
+    return 'text-slate-900'
+  }
+
+  if (value > 0) {
+    return 'text-emerald-600'
+  }
+
+  if (value < 0) {
+    return 'text-rose-600'
+  }
+
+  return 'text-slate-900'
+}
+
+function usageTone(used) {
   if (used === true) {
-    return (
-      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-        Used
-      </span>
-    )
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700'
   }
 
   if (used === false) {
-    return (
-      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-        Not used
-      </span>
-    )
+    return 'border-slate-200 bg-slate-100 text-slate-600'
   }
 
+  return 'border-amber-200 bg-amber-50 text-amber-700'
+}
+
+function UsageBadge({ used }) {
+  const label =
+    used === true ? 'Used' : used === false ? 'Not used' : 'Not available'
+
   return (
-    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-      Not available
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${usageTone(
+        used,
+      )}`}
+    >
+      <span
+        className={`mr-1.5 h-1.5 w-1.5 rounded-full ${
+          used === true
+            ? 'bg-emerald-500'
+            : used === false
+              ? 'bg-slate-400'
+              : 'bg-amber-500'
+        }`}
+      />
+      {label}
     </span>
   )
 }
 
-function ColumnOrder({ columns }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {columns.map((column, index) => (
-        <div key={`${column}-${index}`} className="flex items-center gap-2">
-          <span className="rounded-md bg-slate-100 px-2.5 py-1.5 font-mono text-xs text-slate-700">
-            {column}
-          </span>
+function SectionEyebrow({ children, tone = 'blue' }) {
+  const tones = {
+    blue: 'bg-blue-500',
+    cyan: 'bg-cyan-500',
+    violet: 'bg-violet-500',
+    emerald: 'bg-emerald-500',
+    amber: 'bg-amber-500',
+  }
 
-          {index < columns.length - 1 && (
-            <span className="text-slate-400">→</span>
-          )}
-        </div>
-      ))}
+  return (
+    <div className="flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
+      <span className={`h-2 w-2 rounded-full ${tones[tone]}`} />
+      {children}
     </div>
   )
 }
 
-function SummaryCard({ label, value, detail }) {
+function SummaryCard({ label, value, detail, tone = 'blue' }) {
+  const accents = {
+    blue: 'border-blue-200',
+    cyan: 'border-cyan-200',
+    violet: 'border-violet-200',
+    emerald: 'border-emerald-200',
+    amber: 'border-amber-200',
+  }
+
+  const dots = {
+    blue: 'bg-blue-500',
+    cyan: 'bg-cyan-500',
+    violet: 'bg-violet-500',
+    emerald: 'bg-emerald-500',
+    amber: 'bg-amber-500',
+  }
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+    <div
+      className={`relative overflow-hidden rounded-2xl border bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${accents[tone]}`}
+    >
+      <div className="absolute right-4 top-4">
+        <span className={`block h-2 w-2 rounded-full ${dots[tone]}`} />
+      </div>
+
+      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-400">
         {label}
       </p>
 
-      <p className="mt-2 text-2xl font-semibold text-slate-900">
+      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
         {value}
       </p>
 
       {detail && (
-        <p className="mt-1 text-xs text-slate-500">
-          {detail}
-        </p>
+        <p className="mt-2 text-xs leading-5 text-slate-400">{detail}</p>
       )}
     </div>
   )
 }
 
-function CompositeExperimentCard({ experiment }) {
+function ColumnOrder({ columns, emphasized = false }) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-6 py-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-              M16.2 experiment
-            </p>
+    <div
+      className={`rounded-xl border p-4 ${
+        emphasized
+          ? 'border-blue-200 bg-blue-50/60'
+          : 'border-slate-200 bg-slate-50/70'
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        {columns.map((column, index) => (
+          <div key={`${column}-${index}`} className="flex items-center gap-2">
+            <span
+              className={`rounded-lg border px-3 py-2 font-mono text-xs font-medium ${
+                emphasized
+                  ? 'border-blue-200 bg-white text-blue-800'
+                  : 'border-slate-200 bg-white text-slate-700'
+              }`}
+            >
+              {column}
+            </span>
 
-            <h3 className="mt-1 text-base font-semibold text-slate-900">
-              Recommendation {experiment.recommendation_id}
-            </h3>
+            {index < columns.length - 1 && (
+              <span className="text-sm font-semibold text-slate-300">→</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ImprovementBar({ value, label }) {
+  const safeValue =
+    value === null || value === undefined ? 0 : Math.max(0, Math.min(value, 100))
+
+  return (
+    <div>
+      <div className="mb-2 flex items-end justify-between gap-4">
+        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
+          {label}
+        </p>
+
+        <p className="text-sm font-semibold text-slate-900">
+          {formatPercent(value)}
+        </p>
+      </div>
+
+      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-500"
+          style={{ width: `${safeValue}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function ComparisonMetric({ label, value, tone = 'default' }) {
+  const valueClass =
+    tone === 'positive'
+      ? 'text-emerald-600'
+      : tone === 'negative'
+        ? 'text-rose-600'
+        : 'text-slate-950'
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
+        {label}
+      </p>
+
+      <p className={`mt-2 text-xl font-semibold tracking-tight ${valueClass}`}>
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function CompositeExperimentCard({ experiment }) {
+  const effect = experiment.order_effect_percentage_points
+
+  const effectDescription =
+    effect === null || effect === undefined
+      ? 'Order effect not available'
+      : effect > 0
+        ? 'Alternative order measured higher improvement'
+        : effect < 0
+          ? 'Alternative order measured lower improvement'
+          : 'No measured difference between the orders'
+
+  return (
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-blue-50/40 px-6 py-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <SectionEyebrow tone="violet">M16.2 experiment</SectionEyebrow>
+
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <h3 className="text-lg font-semibold text-slate-950">
+                Recommendation #{experiment.recommendation_id}
+              </h3>
+
+              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-500">
+                {experiment.column_count} columns
+              </span>
+            </div>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Controlled comparison of composite-index column order.
+            </p>
           </div>
 
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            {experiment.column_count} columns
-          </span>
+          <div
+            className={`rounded-xl border px-4 py-3 ${
+              effect !== null && effect < 0
+                ? 'border-rose-200 bg-rose-50'
+                : effect > 0
+                  ? 'border-emerald-200 bg-emerald-50'
+                  : 'border-slate-200 bg-white'
+            }`}
+          >
+            <p className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
+              Order effect
+            </p>
+
+            <p
+              className={`mt-1 text-xl font-semibold ${effectTone(effect)}`}
+            >
+              {formatEffect(effect)}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="space-y-6 px-6 py-6">
-        <div className="grid gap-6 lg:grid-cols-2">
+      <div className="space-y-6 p-6">
+        <div className="grid gap-5 lg:grid-cols-2">
           <div>
-            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">
-              Original order
-            </p>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                Original order
+              </p>
 
-            <ColumnOrder columns={experiment.original_order} />
+              <span className="text-xs text-slate-400">Tested</span>
+            </div>
+
+            <ColumnOrder
+              columns={experiment.original_order}
+              emphasized
+            />
           </div>
 
           <div>
-            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">
-              Alternative order
-            </p>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                Alternative order
+              </p>
+
+              <span className="text-xs text-slate-400">Tested</span>
+            </div>
 
             <ColumnOrder columns={experiment.alternative_order} />
           </div>
         </div>
 
         <div className="grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-3">
-          <div>
-            <p className="text-xs text-slate-400">
-              Original improvement
-            </p>
+          <ComparisonMetric
+            label="Original improvement"
+            value={formatPercent(experiment.original_improvement_percent)}
+            tone={
+              experiment.original_improvement_percent > 0
+                ? 'positive'
+                : experiment.original_improvement_percent < 0
+                  ? 'negative'
+                  : 'default'
+            }
+          />
 
-            <p className="mt-1 text-lg font-semibold text-slate-900">
-              {formatPercent(experiment.original_improvement_percent)}
-            </p>
+          <ComparisonMetric
+            label="Alternative improvement"
+            value={formatPercent(experiment.alternative_improvement_percent)}
+            tone={
+              experiment.alternative_improvement_percent > 0
+                ? 'positive'
+                : experiment.alternative_improvement_percent < 0
+                  ? 'negative'
+                  : 'default'
+            }
+          />
+
+          <ComparisonMetric
+            label="Order effect"
+            value={formatEffect(effect)}
+            tone={
+              effect > 0
+                ? 'positive'
+                : effect < 0
+                  ? 'negative'
+                  : 'default'
+            }
+          />
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                Measured improvement
+              </p>
+
+              <span className="text-xs text-slate-400">0–100%</span>
+            </div>
+
+            <div className="space-y-4">
+              <ImprovementBar
+                label="Original"
+                value={experiment.original_improvement_percent}
+              />
+
+              <ImprovementBar
+                label="Alternative"
+                value={experiment.alternative_improvement_percent}
+              />
+            </div>
           </div>
 
-          <div>
-            <p className="text-xs text-slate-400">
-              Alternative improvement
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
+              Experimental checks
             </p>
 
-            <p className="mt-1 text-lg font-semibold text-slate-900">
-              {formatPercent(experiment.alternative_improvement_percent)}
-            </p>
-          </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+              <div>
+                <p className="text-xs text-slate-400">Original index</p>
+                <div className="mt-2">
+                  <UsageBadge used={experiment.original_index_used} />
+                </div>
+              </div>
 
-          <div>
-            <p className="text-xs text-slate-400">
-              Order effect
-            </p>
+              <div>
+                <p className="text-xs text-slate-400">Alternative index</p>
+                <div className="mt-2">
+                  <UsageBadge used={experiment.alternative_index_used} />
+                </div>
+              </div>
 
-            <p className="mt-1 text-lg font-semibold text-slate-900">
-              {formatEffect(experiment.order_effect_percentage_points)}
-            </p>
+              <div>
+                <p className="text-xs text-slate-400">Rows preserved</p>
+                <p className="mt-2 text-sm font-semibold text-slate-800">
+                  {experiment.original_rows_preserved &&
+                  experiment.alternative_rows_preserved
+                    ? 'Yes — both variants'
+                    : 'Evidence differs'}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-3">
-          <div>
-            <p className="text-xs text-slate-400">
-              Original index
-            </p>
+        <div className="rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3">
+          <p className="text-xs font-medium text-blue-900">
+            {effectDescription}
+          </p>
 
-            <div className="mt-2">
-              <UsageBadge used={experiment.original_index_used} />
-            </div>
-          </div>
-
-          <div>
-            <p className="text-xs text-slate-400">
-              Alternative index
-            </p>
-
-            <div className="mt-2">
-              <UsageBadge used={experiment.alternative_index_used} />
-            </div>
-          </div>
-
-          <div>
-            <p className="text-xs text-slate-400">
-              Rows preserved
-            </p>
-
-            <p className="mt-2 text-sm font-medium text-slate-700">
-              {experiment.original_rows_preserved &&
-              experiment.alternative_rows_preserved
-                ? 'Yes — both variants'
-                : 'Evidence differs'}
-            </p>
-          </div>
+          <p className="mt-1 text-xs leading-5 text-blue-700">
+            The order effect is the measured percentage-point difference
+            between the original and alternative experimental results.
+          </p>
         </div>
       </div>
     </article>
@@ -243,120 +454,250 @@ function CompositeIndexesPage() {
       (experiment) => experiment.alternative_index_used === true,
     ).length
 
+    const negativeEffects = experiments.filter(
+      (experiment) =>
+        experiment.order_effect_percentage_points !== null &&
+        experiment.order_effect_percentage_points < 0,
+    ).length
+
+    const positiveEffects = experiments.filter(
+      (experiment) =>
+        experiment.order_effect_percentage_points !== null &&
+        experiment.order_effect_percentage_points > 0,
+    ).length
+
     return {
       total: experiments.length,
       twoColumn,
       threeColumn,
       originalUsed,
       alternativeUsed,
+      negativeEffects,
+      positiveEffects,
     }
   }, [experiments])
 
   return (
-    <main className="space-y-8 p-8">
-      <div>
-        <p className="text-sm font-medium text-slate-500">
-          M20.8 · Composite Indexes
-        </p>
+    <main className="space-y-8">
+      <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="absolute right-0 top-0 h-32 w-64 rounded-bl-full bg-gradient-to-bl from-violet-100/70 to-transparent" />
 
-        <h2 className="mt-1 text-2xl font-semibold text-slate-900">
-          Composite Indexes
-        </h2>
+        <div className="relative flex flex-col gap-6 px-7 py-7 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <SectionEyebrow tone="violet">
+              Evaluation intelligence
+            </SectionEyebrow>
 
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-          Controlled M16.2 evidence comparing alternative column orders
-          for composite indexes. The dashboard reports established
-          experimental results and does not rerun index experiments.
-        </p>
-      </div>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+              Composite Index Intelligence
+            </h1>
+
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+              Controlled M16.2 evidence comparing alternative column orders for
+              composite indexes across the tested query patterns.
+            </p>
+          </div>
+
+          <div className="relative min-w-[170px] rounded-2xl border border-violet-200 bg-white p-5 shadow-sm">
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Inventory
+            </p>
+
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+              {summary.total}
+            </p>
+
+            <p className="mt-1 text-xs text-slate-400">
+              evaluated order comparisons
+            </p>
+          </div>
+        </div>
+      </section>
 
       {loading && (
-        <div className="rounded-xl border border-slate-200 bg-white p-8 text-sm text-slate-500">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-500 shadow-sm">
           Loading composite index evidence…
         </div>
       )}
 
       {error && !loading && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6">
-          <p className="text-sm font-medium text-red-800">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6">
+          <p className="text-sm font-semibold text-rose-800">
             Unable to load composite index evidence.
           </p>
 
-          <p className="mt-1 text-sm text-red-700">
-            {error}
-          </p>
+          <p className="mt-1 text-sm text-rose-700">{error}</p>
         </div>
       )}
 
       {!loading && !error && (
         <>
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <SummaryCard
-              label="Experiments"
-              value={summary.total}
-              detail="Established M16.2 results"
-            />
+          <section>
+            <div className="mb-4">
+              <SectionEyebrow tone="blue">Evidence snapshot</SectionEyebrow>
 
-            <SummaryCard
-              label="Two-column"
-              value={summary.twoColumn}
-              detail="Composite index experiments"
-            />
-
-            <SummaryCard
-              label="Three-column"
-              value={summary.threeColumn}
-              detail="Composite index experiments"
-            />
-
-            <SummaryCard
-              label="Original used"
-              value={`${summary.originalUsed}/${summary.total}`}
-              detail="Original order variants"
-            />
-
-            <SummaryCard
-              label="Alternative used"
-              value={`${summary.alternativeUsed}/${summary.total}`}
-              detail="Alternative order variants"
-            />
-          </section>
-
-          <section className="space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">
-                Column-order experiments
-              </h3>
+              <h2 className="mt-2 text-xl font-semibold text-slate-950">
+                Composite-order experiment overview
+              </h2>
 
               <p className="mt-1 text-sm text-slate-500">
-                Original and alternative orders are compared against the
-                same experimental baseline.
+                Summary of the established M16.2 comparison evidence.
               </p>
             </div>
 
-            {experiments.map((experiment) => (
-              <CompositeExperimentCard
-                key={experiment.recommendation_id}
-                experiment={experiment}
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+              <SummaryCard
+                label="Evaluated"
+                value={summary.total}
+                detail="Established M16.2 comparisons"
+                tone="blue"
               />
-            ))}
+
+              <SummaryCard
+                label="Two-column"
+                value={summary.twoColumn}
+                detail="Two-column order tests"
+                tone="cyan"
+              />
+
+              <SummaryCard
+                label="Three-column"
+                value={summary.threeColumn}
+                detail="Three-column order tests"
+                tone="violet"
+              />
+
+              <SummaryCard
+                label="Original used"
+                value={`${summary.originalUsed}/${summary.total}`}
+                detail="Original variants used"
+                tone="emerald"
+              />
+
+              <SummaryCard
+                label="Alternative used"
+                value={`${summary.alternativeUsed}/${summary.total}`}
+                detail="Alternative variants used"
+                tone="amber"
+              />
+            </div>
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-slate-50 p-6">
-            <h3 className="text-sm font-semibold text-slate-900">
-              Evidence boundary
-            </h3>
+          <section>
+            <div className="mb-4">
+              <SectionEyebrow tone="violet">
+                Order-effect overview
+              </SectionEyebrow>
 
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              These results describe the tested queries, database state,
-              data, planner, cache, and experimental conditions. They
-              do not establish a universal optimal column order or create
-              permanent indexes.
+              <h2 className="mt-2 text-xl font-semibold text-slate-950">
+                What changed when column order changed?
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Percentage-point differences measured between the tested
+                original and alternative orders.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.15em] text-slate-400">
+                  Positive effects
+                </p>
+
+                <p className="mt-3 text-3xl font-semibold text-emerald-600">
+                  {summary.positiveEffects}
+                </p>
+
+                <p className="mt-2 text-xs leading-5 text-slate-400">
+                  Alternative order measured higher improvement.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-rose-200 bg-white p-5 shadow-sm">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.15em] text-slate-400">
+                  Negative effects
+                </p>
+
+                <p className="mt-3 text-3xl font-semibold text-rose-600">
+                  {summary.negativeEffects}
+                </p>
+
+                <p className="mt-2 text-xs leading-5 text-slate-400">
+                  Alternative order measured lower improvement.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-5 shadow-sm">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.15em] text-blue-500">
+                  Evidence source
+                </p>
+
+                <p className="mt-3 text-3xl font-semibold text-blue-900">
+                  M16.2
+                </p>
+
+                <p className="mt-2 text-xs leading-5 text-blue-700">
+                  Stored experimental comparison results.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-4">
+              <SectionEyebrow tone="cyan">
+                Column-order experiments
+              </SectionEyebrow>
+
+              <h2 className="mt-2 text-xl font-semibold text-slate-950">
+                Original versus alternative order
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Each card reports the measured results for one controlled
+                comparison.
+              </p>
+            </div>
+
+            <div className="space-y-5">
+              {experiments.map((experiment) => (
+                <CompositeExperimentCard
+                  key={experiment.recommendation_id}
+                  experiment={experiment}
+                />
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50/70 via-white to-white p-6 shadow-sm">
+            <SectionEyebrow tone="amber">Evidence boundary</SectionEyebrow>
+
+            <h2 className="mt-3 text-base font-semibold text-slate-950">
+              How to interpret composite-index order evidence
+            </h2>
+
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
+              These results describe the tested queries, database state, data,
+              planner, cache, and experimental conditions. They demonstrate
+              that column order can affect measured performance in the tested
+              cases, but they do not establish a universal optimal column
+              order.
             </p>
 
-            <p className="mt-3 text-xs text-slate-400">
-              Evidence source: M16.2
-            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">
+                Evidence source: M16.2
+              </span>
+
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">
+                Reporting only
+              </span>
+
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">
+                No permanent indexes created
+              </span>
+            </div>
           </section>
         </>
       )}
