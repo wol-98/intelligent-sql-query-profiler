@@ -5,6 +5,7 @@ from api.routes import composite
 from api.routes import decisions
 from api.routes import queries
 from api.routes import benchmarks
+from api.routes import provenance
 
 from api.routes.overview import (
     router as overview_router,
@@ -66,6 +67,8 @@ app.include_router(
 )
 app.include_router(
     benchmarks.router)
+app.include_router(
+    provenance.router)
 @app.get("/api/health")
 def health_check() -> dict[str, str]:
     return {

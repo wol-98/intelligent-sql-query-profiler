@@ -45,3 +45,11 @@ export async function getBenchmarks() {
 export async function getBenchmark(benchmarkId) {
   return request(`/api/benchmarks/${benchmarkId}`);
 }
+
+export async function getProvenance() {
+  return request('/api/provenance')
+}
+
+export async function getProvenanceRecord(recommendationId) {
+  return request(`/api/provenance/${recommendationId}`)
+}

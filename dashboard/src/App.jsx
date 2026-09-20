@@ -4,6 +4,7 @@ import CompositeIndexesPage from './pages/CompositeIndexesPage'
 import ProductionDecisionsPage from './pages/ProductionDecisionsPage'
 import QueriesPage from './pages/QueriesPage'
 import BenchmarksPage from './pages/BenchmarksPage'
+import EvidenceProvenancePage from './pages/EvidenceProvenancePage'
 
 import AppShell from './components/layout/AppShell'
 import OverviewPage from './pages/OverviewPage'
@@ -92,6 +93,9 @@ function App() {
       }}
     />
   )
+}
+    if (activePage === 'provenance') {
+      return <EvidenceProvenancePage />
 }
     if (activePage === 'recommendations') {
       return (

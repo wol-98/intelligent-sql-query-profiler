@@ -42,7 +42,7 @@ const navigationItems = [
   {
     id: 'provenance',
     label: 'Evidence & Provenance',
-    enabled: false,
+    enabled: true,
   },
 ]
 
