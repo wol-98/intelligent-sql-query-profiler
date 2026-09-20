@@ -2,13 +2,17 @@
 
 from api.schemas.structural_optimization import (
     EvidenceStatus,
+    OptimizationOpportunityStatus,
+    OptimizationOpportunityType,
     OptimizationRelevance,
     StructuralAnalysis,
     StructuralAnalysisStatus,
     StructuralClassificationResult,
     StructuralFinding,
     StructuralFindingClassificationType,
+    StructuralOpportunityResult,
 )
+
 from api.services.structural_analysis_enricher import (
     StructuralAnalysisEnricher,
 )
@@ -21,6 +25,78 @@ def _finding(layer: str, evidence: str) -> StructuralFinding:
         severity="INFO",
         description=f"Structural finding for {layer}",
         evidence=evidence,
+    )
+
+
+def test_analyze_opportunities_integrates_classification_and_opportunity_analysis():
+    analysis = StructuralAnalysis(
+        query=(
+            "SELECT o.customer_id, COUNT(*) "
+            "FROM orders o "
+            "JOIN customers c "
+            "ON o.customer_id = c.customer_id "
+            "WHERE o.status = 'completed' "
+            "GROUP BY o.customer_id "
+            "ORDER BY COUNT(*) DESC "
+            "LIMIT 10"
+        ),
+        status=StructuralAnalysisStatus.ANALYZED,
+        findings=[
+            _finding(
+                "SELECT",
+                "expressions=o.customer_id, COUNT(*)",
+            ),
+            _finding(
+                "FROM",
+                "from=orders AS o",
+            ),
+            _finding(
+                "JOIN",
+                "join=JOIN customers AS c ON "
+                "o.customer_id = c.customer_id",
+            ),
+            _finding(
+                "WHERE",
+                "where=WHERE o.status = 'completed'",
+            ),
+            _finding(
+                "GROUP_BY",
+                "group_by=GROUP BY o.customer_id",
+            ),
+            _finding(
+                "ORDER_BY",
+                "order_by=ORDER BY COUNT(*) DESC",
+            ),
+            _finding(
+                "LIMIT_OFFSET",
+                "limit=LIMIT 10",
+            ),
+        ],
+    )
+
+    result = StructuralAnalysisEnricher().analyze_opportunities(analysis)
+
+    assert isinstance(result, StructuralOpportunityResult)
+
+    assert [
+        opportunity.opportunity_type
+        for opportunity in result.opportunities
+    ] == [
+        OptimizationOpportunityType.JOIN_ANALYSIS,
+        OptimizationOpportunityType.PREDICATE_ANALYSIS,
+        OptimizationOpportunityType.AGGREGATION_ANALYSIS,
+        OptimizationOpportunityType.ORDERING_ANALYSIS,
+        OptimizationOpportunityType.ROW_LIMITING_ANALYSIS,
+    ]
+
+    assert [
+        opportunity.finding_index
+        for opportunity in result.opportunities
+    ] == [2, 3, 4, 5, 6]
+
+    assert all(
+        opportunity.status == OptimizationOpportunityStatus.IDENTIFIED
+        for opportunity in result.opportunities
     )
 
 
