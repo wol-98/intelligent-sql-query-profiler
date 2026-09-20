@@ -1,102 +1,133 @@
-const navigationItems = [
+const navigationSections = [
   {
-    id: 'overview',
-    label: 'Overview',
-    enabled: true,
+    label: 'Analysis',
+    items: [
+      {
+        id: 'overview',
+        label: 'Overview',
+        enabled: true,
+      },
+      {
+        id: 'recommendations',
+        label: 'Recommendations',
+        enabled: true,
+      },
+      {
+        id: 'queries',
+        label: 'Queries',
+        enabled: true,
+      },
+      {
+        id: 'workloads',
+        label: 'Workloads',
+        enabled: true,
+      },
+    ],
   },
   {
-    id: 'recommendations',
-    label: 'Recommendations',
-    enabled: true,
+    label: 'Evaluation',
+    items: [
+      {
+        id: 'benchmarks',
+        label: 'Benchmarks',
+        enabled: true,
+      },
+      {
+        id: 'cost-benefit',
+        label: 'Cost & Benefit',
+        enabled: true,
+      },
+      {
+        id: 'composite-indexes',
+        label: 'Composite Indexes',
+        enabled: true,
+      },
+    ],
   },
   {
-    id: 'queries',
-    label: 'Queries',
-    enabled: true,
-  },
-  {
-    id: 'workloads',
-    label: 'Workloads',
-    enabled: true,
-  },
-  {
-    id: 'benchmarks',
-    label: 'Benchmarks',
-    enabled: true,
-  },
-  {
-    id: 'cost-benefit',
-    label: 'Cost & Benefit',
-    enabled: true,
-  },
-  {
-    id: 'composite-indexes',
-    label: 'Composite Indexes',
-    enabled: true,
-  },
-  {
-    id: 'production-decisions',
-    label: 'Production Decisions',
-    enabled: true,
-  },
-  {
-    id: 'provenance',
-    label: 'Evidence & Provenance',
-    enabled: true,
+    label: 'Decision & Evidence',
+    items: [
+      {
+        id: 'production-decisions',
+        label: 'Production Decisions',
+        enabled: true,
+      },
+      {
+        id: 'provenance',
+        label: 'Evidence & Provenance',
+        enabled: true,
+      },
+    ],
   },
 ]
 
 function Sidebar({ activePage, onNavigate }) {
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-6 py-6">
-        <h1 className="text-base font-semibold leading-tight text-slate-900">
-          SQL Profiler
-        </h1>
+    <aside className="dashboard-sidebar flex shrink-0 flex-col">
+      <div className="dashboard-brand px-5 py-5">
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="dashboard-brand-mark">SQL</div>
 
-        <p className="mt-1 text-xs text-slate-500">
-          Optimization Intelligence
-        </p>
+          <div>
+            <h1 className="dashboard-brand-title">
+              SQL Profiler
+            </h1>
+
+            <p className="dashboard-brand-subtitle">
+              Optimization Intelligence
+            </p>
+          </div>
+        </div>
       </div>
 
-      <nav className="flex-1 px-3 py-4">
-        <div className="space-y-1">
-          {navigationItems.map((item) => {
-            const isActive = activePage === item.id
+      <nav className="flex-1 px-3 py-5">
+        {navigationSections.map((section) => (
+          <div className="dashboard-nav-section" key={section.label}>
+            <p className="dashboard-nav-label">{section.label}</p>
 
-            if (!item.enabled) {
-              return (
-                <div
-                  key={item.id}
-                  className="flex cursor-not-allowed items-center rounded-lg px-3 py-2.5 text-sm text-slate-300"
-                >
-                  {item.label}
-                </div>
-              )
-            }
+            <div className="space-y-1">
+              {section.items.map((item) => {
+                const isActive = activePage === item.id
 
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onNavigate(item.id)}
-                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
-                  isActive
-                    ? 'bg-slate-100 text-slate-900'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                {item.label}
-              </button>
-            )
-          })}
-        </div>
+                if (!item.enabled) {
+                  return (
+                    <div
+                      key={item.id}
+                      className="dashboard-nav-item dashboard-nav-disabled"
+                    >
+                      <span className="dashboard-nav-dot" />
+                      <span>{item.label}</span>
+                    </div>
+                  )
+                }
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onNavigate(item.id)}
+                    className={`dashboard-nav-item dashboard-focus ${
+                      isActive ? 'dashboard-nav-item-active' : ''
+                    }`}
+                  >
+                    <span className="dashboard-nav-dot" />
+                    <span>{item.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      <div className="border-t border-slate-200 px-6 py-4">
-        <p className="text-xs text-slate-400">
-          Read-only reporting dashboard
-        </p>
+      <div className="border-t border-white/10 px-5 py-4">
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.08)]" />
+
+          <p className="text-[0.68rem] font-medium text-slate-400">
+            Read-only reporting dashboard
+          </p>
+        </div>
       </div>
     </aside>
   )

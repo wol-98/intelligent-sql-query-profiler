@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import './App.css'
+
 import CostBenefitPage from './pages/CostBenefitPage'
 import CompositeIndexesPage from './pages/CompositeIndexesPage'
 import ProductionDecisionsPage from './pages/ProductionDecisionsPage'
