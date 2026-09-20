@@ -156,6 +156,37 @@ class StructuralOpportunityResult(BaseModel):
     )
 
 
+class SubqueryAlternativeType(str, Enum):
+    EXISTS = "EXISTS"
+    IN = "IN"
+    ANY = "ANY"
+    DERIVED_TABLE = "DERIVED_TABLE"
+
+
+class SemanticSafetyStatus(str, Enum):
+    NOT_ASSESSED = "NOT_ASSESSED"
+    REQUIRES_VALIDATION = "REQUIRES_VALIDATION"
+    UNSAFE = "UNSAFE"
+
+
+class StructuralAlternativeCandidate(BaseModel):
+    candidate_id: str
+    alternative_type: SubqueryAlternativeType
+    status: CandidateStatus = CandidateStatus.CANDIDATE
+    semantic_safety: SemanticSafetyStatus = SemanticSafetyStatus.NOT_ASSESSED
+    evidence_status: EvidenceStatus
+    title: str
+    rationale: str
+    source_layer: StructuralLayer | None = None
+    original_sql: str
+    alternative_sql: str | None = None
+
+
+class StructuralAlternativeResult(BaseModel):
+    candidates: list[StructuralAlternativeCandidate] = Field(
+        default_factory=list
+    )
+
 class OptimizationCandidate(BaseModel):
     candidate_id: str
     alternative_type: AlternativeType
