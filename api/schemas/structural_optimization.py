@@ -264,3 +264,25 @@ class OptimizationReport(BaseModel):
     candidates: list[OptimizationCandidate] = Field(default_factory=list)
     benchmark_evidence: list[BenchmarkEvidence] = Field(default_factory=list)
     overall_evidence_status: EvidenceStatus
+
+
+class SubqueryAlternativeCharacteristicType(str, Enum):
+    EXISTS_PREDICATE = "EXISTS_PREDICATE"
+    IN_PREDICATE = "IN_PREDICATE"
+    ANY_PREDICATE = "ANY_PREDICATE"
+    CORRELATED_SUBQUERY = "CORRELATED_SUBQUERY"
+    DERIVED_TABLE = "DERIVED_TABLE"
+
+
+class SubqueryAlternativeCharacteristic(BaseModel):
+    finding_index: int = Field(ge=0)
+    characteristic_type: SubqueryAlternativeCharacteristicType
+    evidence_status: EvidenceStatus
+    evidence_quality: EvidenceQuality
+    rationale: str
+
+
+class SubqueryAlternativeCharacteristicResult(BaseModel):
+    characteristics: list[SubqueryAlternativeCharacteristic] = Field(
+        default_factory=list
+    )
