@@ -156,6 +156,29 @@ class StructuralOpportunityResult(BaseModel):
     )
 
 
+class AggregationWindowCharacteristicType(str, Enum):
+    GROUPING = "GROUPING"
+    AGGREGATE_FUNCTION = "AGGREGATE_FUNCTION"
+    HAVING_FILTER = "HAVING_FILTER"
+    WINDOW_FUNCTION = "WINDOW_FUNCTION"
+    WINDOW_PARTITION = "WINDOW_PARTITION"
+    WINDOW_ORDERING = "WINDOW_ORDERING"
+
+
+class AggregationWindowCharacteristic(BaseModel):
+    finding_index: int = Field(ge=0)
+    characteristic_type: AggregationWindowCharacteristicType
+    evidence_status: EvidenceStatus
+    evidence_quality: EvidenceQuality
+    rationale: str
+
+
+class AggregationWindowCharacteristicResult(BaseModel):
+    characteristics: list[AggregationWindowCharacteristic] = Field(
+        default_factory=list
+    )
+
+
 class SubqueryAlternativeType(str, Enum):
     EXISTS = "EXISTS"
     IN = "IN"
