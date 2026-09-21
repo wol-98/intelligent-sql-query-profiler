@@ -44,6 +44,7 @@ class StructuralLayer(str, Enum):
     ORDER_BY = "ORDER_BY"
     LIMIT_OFFSET = "LIMIT_OFFSET"
     SUBQUERY = "SUBQUERY"
+    CTE = "CTE"
     SET_OPERATION = "SET_OPERATION"
 
 
@@ -289,5 +290,24 @@ class SubqueryAlternativeCharacteristic(BaseModel):
 
 class SubqueryAlternativeCharacteristicResult(BaseModel):
     characteristics: list[SubqueryAlternativeCharacteristic] = Field(
+        default_factory=list
+    )
+
+class CTECharacteristicType(str, Enum):
+    CTE_DEFINITION = "CTE_DEFINITION"
+    CTE_REFERENCE = "CTE_REFERENCE"
+    RECURSIVE_CTE = "RECURSIVE_CTE"
+
+
+class CTECharacteristic(BaseModel):
+    finding_index: int = Field(ge=0)
+    characteristic_type: CTECharacteristicType
+    evidence_status: EvidenceStatus
+    evidence_quality: EvidenceQuality
+    rationale: str
+
+
+class CTECharacteristicResult(BaseModel):
+    characteristics: list[CTECharacteristic] = Field(
         default_factory=list
     )
