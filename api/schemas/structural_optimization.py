@@ -173,6 +173,27 @@ class AggregationWindowCharacteristic(BaseModel):
     rationale: str
 
 
+class OrderingLimitCharacteristicType(str, Enum):
+    ORDERING = "ORDERING"
+    LIMIT = "LIMIT"
+    OFFSET = "OFFSET"
+    FILTER_WITH_ROW_LIMIT = "FILTER_WITH_ROW_LIMIT"
+
+
+class OrderingLimitCharacteristic(BaseModel):
+    finding_index: int = Field(ge=0)
+    characteristic_type: OrderingLimitCharacteristicType
+    evidence_status: EvidenceStatus
+    evidence_quality: EvidenceQuality
+    rationale: str
+
+
+class OrderingLimitCharacteristicResult(BaseModel):
+    characteristics: list[OrderingLimitCharacteristic] = Field(
+        default_factory=list
+    )
+
+
 class AggregationWindowCharacteristicResult(BaseModel):
     characteristics: list[AggregationWindowCharacteristic] = Field(
         default_factory=list
