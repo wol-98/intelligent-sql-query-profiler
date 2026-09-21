@@ -1,6 +1,7 @@
 """Tests for structural analysis classification integration."""
 
 from api.schemas.structural_optimization import (
+    AggregationWindowCharacteristicResult,
     AlternativeType,
     CandidateStatus,
     EvidenceStatus,
@@ -20,6 +21,9 @@ from api.services.structural_analysis_enricher import (
     StructuralAnalysisEnricher,
 )
 
+from api.services.structural_sql_analyzer import (
+    StructuralSQLAnalyzer,
+)
 
 def _finding(layer: str, evidence: str) -> StructuralFinding:
     return StructuralFinding(
@@ -29,7 +33,6 @@ def _finding(layer: str, evidence: str) -> StructuralFinding:
         description=f"Structural finding for {layer}",
         evidence=evidence,
     )
-
 
 def test_analyze_opportunities_integrates_classification_and_opportunity_analysis():
     analysis = StructuralAnalysis(
@@ -841,3 +844,140 @@ def test_generate_candidates_preserves_original_sql_exactly() -> None:
         candidate.original_sql == original_sql
         for candidate in result
     )
+
+def test_analyze_aggregation_window_characteristics_integrates_both_analyzers():
+    from sqlglot import parse_one
+
+    from api.schemas.structural_optimization import (
+        AggregationWindowCharacteristicType,
+    )
+
+    sql = """
+        SELECT
+            customer_id,
+            COUNT(*) AS order_count,
+            ROW_NUMBER() OVER (
+                PARTITION BY customer_id
+                ORDER BY order_date
+            ) AS rn
+        FROM orders
+        GROUP BY customer_id
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    result = StructuralAnalysisEnricher().analyze_aggregation_window_characteristics(
+        expression,
+        analysis,
+    )
+
+    assert isinstance(
+        result,
+        AggregationWindowCharacteristicResult,
+    )
+
+    assert [
+        characteristic.characteristic_type
+        for characteristic in result.characteristics
+    ] == [
+        AggregationWindowCharacteristicType.GROUPING,
+        AggregationWindowCharacteristicType.AGGREGATE_FUNCTION,
+        AggregationWindowCharacteristicType.WINDOW_FUNCTION,
+        AggregationWindowCharacteristicType.WINDOW_PARTITION,
+        AggregationWindowCharacteristicType.WINDOW_ORDERING,
+    ]
+
+
+def test_analyze_aggregation_window_characteristics_preserves_finding_links():
+    from sqlglot import parse_one
+
+    sql = """
+        SELECT
+            customer_id,
+            COUNT(*) AS order_count,
+            ROW_NUMBER() OVER (
+                PARTITION BY customer_id
+                ORDER BY order_date
+            ) AS rn
+        FROM orders
+        GROUP BY customer_id
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    result = StructuralAnalysisEnricher().analyze_aggregation_window_characteristics(
+        expression,
+        analysis,
+    )
+
+    finding_indices = {
+        index
+        for index, finding in enumerate(analysis.findings)
+        if finding.layer in {
+            "GROUP_BY",
+            "SELECT",
+            "WINDOW",
+        }
+    }
+
+    assert result.characteristics
+    assert all(
+        characteristic.finding_index in finding_indices
+        for characteristic in result.characteristics
+    )
+
+
+def test_analyze_aggregation_window_characteristics_handles_window_only_query():
+    from sqlglot import parse_one
+
+    from api.schemas.structural_optimization import (
+        AggregationWindowCharacteristicType,
+    )
+
+    sql = """
+        SELECT
+            customer_id,
+            ROW_NUMBER() OVER (
+                PARTITION BY customer_id
+                ORDER BY order_date
+            ) AS rn
+        FROM orders
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    result = StructuralAnalysisEnricher().analyze_aggregation_window_characteristics(
+        expression,
+        analysis,
+    )
+
+    assert [
+        characteristic.characteristic_type
+        for characteristic in result.characteristics
+    ] == [
+        AggregationWindowCharacteristicType.WINDOW_FUNCTION,
+        AggregationWindowCharacteristicType.WINDOW_PARTITION,
+        AggregationWindowCharacteristicType.WINDOW_ORDERING,
+    ]
+
+
+def test_analyze_aggregation_window_characteristics_handles_plain_query():
+    from sqlglot import parse_one
+
+    sql = """
+        SELECT customer_id, total_amount
+        FROM orders
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    result = StructuralAnalysisEnricher().analyze_aggregation_window_characteristics(
+        expression,
+        analysis,
+    )
+
+    assert result.characteristics == []

@@ -1,10 +1,16 @@
 """Integration layer for structural analysis classification, opportunities, and candidates."""
 
+from sqlglot import exp
+
 from api.schemas.structural_optimization import (
+    AggregationWindowCharacteristicResult,
     OptimizationCandidate,
     StructuralAnalysis,
     StructuralClassificationResult,
     StructuralOpportunityResult,
+)
+from api.services.structural_aggregation_analyzer import (
+    StructuralAggregationAnalyzer,
 )
 from api.services.structural_candidate_generator import (
     StructuralCandidateGenerator,
@@ -14,6 +20,9 @@ from api.services.structural_finding_classifier import (
 )
 from api.services.structural_opportunity_analyzer import (
     StructuralOpportunityAnalyzer,
+)
+from api.services.structural_window_analyzer import (
+    StructuralWindowAnalyzer,
 )
 
 
@@ -31,6 +40,8 @@ class StructuralAnalysisEnricher:
         classifier: StructuralFindingClassifier | None = None,
         opportunity_analyzer: StructuralOpportunityAnalyzer | None = None,
         candidate_generator: StructuralCandidateGenerator | None = None,
+        aggregation_analyzer: StructuralAggregationAnalyzer | None = None,
+        window_analyzer: StructuralWindowAnalyzer | None = None,
     ) -> None:
         self._classifier = classifier or StructuralFindingClassifier()
         self._opportunity_analyzer = (
@@ -38,6 +49,12 @@ class StructuralAnalysisEnricher:
         )
         self._candidate_generator = (
             candidate_generator or StructuralCandidateGenerator()
+        )
+        self._aggregation_analyzer = (
+            aggregation_analyzer or StructuralAggregationAnalyzer()
+        )
+        self._window_analyzer = (
+            window_analyzer or StructuralWindowAnalyzer()
         )
 
     def classify(
@@ -67,6 +84,34 @@ class StructuralAnalysisEnricher:
         return self._opportunity_analyzer.analyze(
             analysis,
             classifications,
+        )
+
+    def analyze_aggregation_window_characteristics(
+        self,
+        expression: exp.Expression,
+        analysis: StructuralAnalysis,
+    ) -> AggregationWindowCharacteristicResult:
+        """Return aggregation and window characteristics for a SQL AST.
+
+        The established aggregation and window analyzers are executed
+        independently and their results are combined without modifying the
+        original StructuralAnalysis instance.
+        """
+        aggregation_result = self._aggregation_analyzer.analyze(
+            expression,
+            analysis,
+        )
+
+        window_result = self._window_analyzer.analyze(
+            expression,
+            analysis,
+        )
+
+        return AggregationWindowCharacteristicResult(
+            characteristics=[
+                *aggregation_result.characteristics,
+                *window_result.characteristics,
+            ]
         )
 
     def generate_candidates(
