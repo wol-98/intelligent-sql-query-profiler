@@ -18,6 +18,7 @@ from api.schemas.structural_optimization import (
     StructuralFinding,
     StructuralFindingClassificationType,
     StructuralOpportunityResult,
+    SubqueryAlternativeCharacteristicType,
 )
 
 from api.services.structural_analysis_enricher import (
@@ -508,3 +509,164 @@ def test_analyze_ordering_limit_characteristics_does_not_modify_analysis():
     ]
 
     assert resulting_findings == original_findings
+def test_analyze_subquery_opportunities_integrates_detection_and_analysis():
+    sql = """
+        SELECT *
+        FROM orders o
+        WHERE EXISTS (
+            SELECT 1
+            FROM order_items oi
+            WHERE oi.order_id = o.order_id
+        )
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+
+    analysis = StructuralAnalysis(
+        status=StructuralAnalysisStatus.ANALYZED,
+        findings=[
+            _finding(
+                "SELECT",
+                "query_block=1; expressions=*",
+            ),
+            _finding(
+                "FROM",
+                "query_block=1; from=orders AS o",
+            ),
+            _finding(
+                "WHERE",
+                "query_block=1; where=WHERE EXISTS (...)",
+            ),
+            _finding(
+                "SELECT",
+                "query_block=2; expressions=1",
+            ),
+            _finding(
+                "FROM",
+                "query_block=2; from=order_items AS oi",
+            ),
+            _finding(
+                "WHERE",
+                "query_block=2; where=WHERE oi.order_id = o.order_id",
+            ),
+        ],
+    )
+
+    enricher = StructuralAnalysisEnricher()
+
+    result = enricher.analyze_subquery_opportunities(
+        expression,
+        analysis,
+    )
+
+    assert isinstance(result, StructuralOpportunityResult)
+
+    assert [
+        opportunity.opportunity_type
+        for opportunity in result.opportunities
+    ] == [
+        OptimizationOpportunityType.SUBQUERY_EXISTS_ANALYSIS,
+    ]
+
+    assert result.opportunities[0].status == (
+        OptimizationOpportunityStatus.IDENTIFIED
+    )
+
+    assert result.opportunities[0].finding_index == 2
+
+
+def test_analyze_subquery_opportunities_handles_in():
+    sql = """
+        SELECT *
+        FROM orders
+        WHERE customer_id IN (
+            SELECT customer_id
+            FROM customers
+        )
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+
+    analysis = StructuralAnalysis(
+        status=StructuralAnalysisStatus.ANALYZED,
+        findings=[
+            _finding(
+                "SELECT",
+                "query_block=1; expressions=*",
+            ),
+            _finding(
+                "FROM",
+                "query_block=1; from=orders",
+            ),
+            _finding(
+                "WHERE",
+                "query_block=1; where=WHERE customer_id IN (...)",
+            ),
+            _finding(
+                "SELECT",
+                "query_block=2; expressions=customer_id",
+            ),
+            _finding(
+                "FROM",
+                "query_block=2; from=customers",
+            ),
+        ],
+    )
+
+    result = StructuralAnalysisEnricher().analyze_subquery_opportunities(
+        expression,
+        analysis,
+    )
+
+    assert [
+        opportunity.opportunity_type
+        for opportunity in result.opportunities
+    ] == [
+        OptimizationOpportunityType.SUBQUERY_IN_ANALYSIS,
+    ]
+
+
+def test_analyze_subquery_opportunities_handles_derived_table():
+    sql = """
+        SELECT x.customer_id
+        FROM (
+            SELECT customer_id
+            FROM orders
+        ) AS x
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+
+    analysis = StructuralAnalysis(
+        status=StructuralAnalysisStatus.ANALYZED,
+        findings=[
+            _finding(
+                "SELECT",
+                "query_block=1; expressions=x.customer_id",
+            ),
+            _finding(
+                "FROM",
+                "query_block=1; from=(SELECT ...) AS x",
+            ),
+            _finding(
+                "SELECT",
+                "query_block=2; expressions=customer_id",
+            ),
+            _finding(
+                "FROM",
+                "query_block=2; from=orders",
+            ),
+        ],
+    )
+
+    result = StructuralAnalysisEnricher().analyze_subquery_opportunities(
+        expression,
+        analysis,
+    )
+
+    assert [
+        opportunity.opportunity_type
+        for opportunity in result.opportunities
+    ] == [
+        OptimizationOpportunityType.DERIVED_TABLE_ANALYSIS,
+    ]

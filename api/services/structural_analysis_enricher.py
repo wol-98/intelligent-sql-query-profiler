@@ -9,6 +9,7 @@ from api.schemas.structural_optimization import (
     StructuralAnalysis,
     StructuralClassificationResult,
     StructuralOpportunityResult,
+    SubqueryAlternativeCharacteristicResult,
 )
 from api.services.structural_aggregation_analyzer import (
     StructuralAggregationAnalyzer,
@@ -25,6 +26,12 @@ from api.services.structural_opportunity_analyzer import (
 from api.services.structural_ordering_limit_analyzer import (
     StructuralOrderingLimitAnalyzer,
 )
+from api.services.structural_subquery_analyzer import (
+    StructuralSubqueryAnalyzer,
+)
+from api.services.structural_subquery_opportunity_analyzer import (
+    StructuralSubqueryOpportunityAnalyzer,
+)
 from api.services.structural_window_analyzer import (
     StructuralWindowAnalyzer,
 )
@@ -36,8 +43,8 @@ class StructuralAnalysisEnricher:
     This service deliberately keeps StructuralAnalysis unchanged. It acts as
     an integration layer between structural analysis, finding classification,
     structural opportunity analysis, candidate generation, aggregation and
-    window analysis, and ordering/row-limiting analysis without performing
-    SQL execution, benchmarking, or decision-making.
+    window analysis, ordering/row-limiting analysis, and subquery analysis
+    without performing SQL execution, benchmarking, or decision-making.
     """
 
     def __init__(
@@ -48,22 +55,40 @@ class StructuralAnalysisEnricher:
         aggregation_analyzer: StructuralAggregationAnalyzer | None = None,
         window_analyzer: StructuralWindowAnalyzer | None = None,
         ordering_limit_analyzer: StructuralOrderingLimitAnalyzer | None = None,
+        subquery_analyzer: StructuralSubqueryAnalyzer | None = None,
+        subquery_opportunity_analyzer: (
+            StructuralSubqueryOpportunityAnalyzer | None
+        ) = None,
     ) -> None:
         self._classifier = classifier or StructuralFindingClassifier()
+
         self._opportunity_analyzer = (
             opportunity_analyzer or StructuralOpportunityAnalyzer()
         )
+
         self._candidate_generator = (
             candidate_generator or StructuralCandidateGenerator()
         )
+
         self._aggregation_analyzer = (
             aggregation_analyzer or StructuralAggregationAnalyzer()
         )
+
         self._window_analyzer = (
             window_analyzer or StructuralWindowAnalyzer()
         )
+
         self._ordering_limit_analyzer = (
             ordering_limit_analyzer or StructuralOrderingLimitAnalyzer()
+        )
+
+        self._subquery_analyzer = (
+            subquery_analyzer or StructuralSubqueryAnalyzer()
+        )
+
+        self._subquery_opportunity_analyzer = (
+            subquery_opportunity_analyzer
+            or StructuralSubqueryOpportunityAnalyzer()
         )
 
     def classify(
@@ -80,11 +105,11 @@ class StructuralAnalysisEnricher:
         self,
         analysis: StructuralAnalysis,
     ) -> StructuralOpportunityResult:
-        """Return structural optimization-analysis opportunities.
+        """Return generic structural optimization-analysis opportunities.
 
         Classification is performed first using the established classifier,
-        then the resulting classifications are passed to the opportunity
-        analyzer.
+        then the resulting classifications are passed to the generic
+        opportunity analyzer.
 
         The original StructuralAnalysis instance is not modified.
         """
@@ -136,6 +161,29 @@ class StructuralAnalysisEnricher:
         return self._ordering_limit_analyzer.analyze(
             expression,
             analysis,
+        )
+
+    def analyze_subquery_opportunities(
+        self,
+        expression: exp.Expression,
+        analysis: StructuralAnalysis,
+    ) -> StructuralOpportunityResult:
+        """Return subquery-related structural opportunities.
+
+        Subquery characteristics are detected first and then passed to the
+        dedicated subquery opportunity analyzer.
+
+        The original StructuralAnalysis instance is not modified.
+        """
+        characteristics: SubqueryAlternativeCharacteristicResult = (
+            self._subquery_analyzer.analyze(
+                expression,
+                analysis,
+            )
+        )
+
+        return self._subquery_opportunity_analyzer.analyze(
+            characteristics,
         )
 
     def generate_candidates(

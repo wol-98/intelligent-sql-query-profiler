@@ -128,6 +128,10 @@ class OptimizationOpportunityType(str, Enum):
     ORDERING_ANALYSIS = "ORDERING_ANALYSIS"
     ROW_LIMITING_ANALYSIS = "ROW_LIMITING_ANALYSIS"
     NESTED_QUERY_ANALYSIS = "NESTED_QUERY_ANALYSIS"
+    SUBQUERY_EXISTS_ANALYSIS = "SUBQUERY_EXISTS_ANALYSIS"
+    SUBQUERY_IN_ANALYSIS = "SUBQUERY_IN_ANALYSIS"
+    SUBQUERY_ANY_ANALYSIS = "SUBQUERY_ANY_ANALYSIS"
+    DERIVED_TABLE_ANALYSIS = "DERIVED_TABLE_ANALYSIS"
 
 
 class OptimizationOpportunityStatus(str, Enum):
@@ -231,6 +235,7 @@ class StructuralAlternativeResult(BaseModel):
     candidates: list[StructuralAlternativeCandidate] = Field(
         default_factory=list
     )
+
 
 class OptimizationCandidate(BaseModel):
     candidate_id: str
