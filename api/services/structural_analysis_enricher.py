@@ -6,11 +6,13 @@ from api.schemas.structural_optimization import (
     AggregationWindowCharacteristicResult,
     OptimizationCandidate,
     OrderingLimitCharacteristicResult,
+    StructuralAlternativeResult,
     StructuralAnalysis,
     StructuralClassificationResult,
     StructuralOpportunityResult,
     SubqueryAlternativeCharacteristicResult,
 )
+
 from api.services.structural_aggregation_analyzer import (
     StructuralAggregationAnalyzer,
 )
@@ -28,6 +30,9 @@ from api.services.structural_ordering_limit_analyzer import (
 )
 from api.services.structural_subquery_analyzer import (
     StructuralSubqueryAnalyzer,
+)
+from api.services.structural_subquery_candidate_generator import (
+    StructuralSubqueryCandidateGenerator,
 )
 from api.services.structural_subquery_opportunity_analyzer import (
     StructuralSubqueryOpportunityAnalyzer,
@@ -59,6 +64,9 @@ class StructuralAnalysisEnricher:
         subquery_opportunity_analyzer: (
             StructuralSubqueryOpportunityAnalyzer | None
         ) = None,
+        subquery_candidate_generator: (
+            StructuralSubqueryCandidateGenerator | None
+        ) = None,
     ) -> None:
         self._classifier = classifier or StructuralFindingClassifier()
 
@@ -89,6 +97,11 @@ class StructuralAnalysisEnricher:
         self._subquery_opportunity_analyzer = (
             subquery_opportunity_analyzer
             or StructuralSubqueryOpportunityAnalyzer()
+        )
+
+        self._subquery_candidate_generator = (
+            subquery_candidate_generator
+            or StructuralSubqueryCandidateGenerator()
         )
 
     def classify(
@@ -184,6 +197,37 @@ class StructuralAnalysisEnricher:
 
         return self._subquery_opportunity_analyzer.analyze(
             characteristics,
+        )
+
+    def generate_subquery_candidates(
+        self,
+        expression: exp.Expression,
+        analysis: StructuralAnalysis,
+        original_sql: str,
+    ) -> StructuralAlternativeResult:
+        """Generate structural candidates for subquery alternatives.
+
+        Subquery characteristics are detected first, followed by dedicated
+        subquery opportunity analysis and deterministic candidate generation.
+
+        Candidates remain unvalidated and do not contain rewritten SQL.
+        The original StructuralAnalysis instance is not modified.
+        """
+        characteristics: SubqueryAlternativeCharacteristicResult = (
+            self._subquery_analyzer.analyze(
+                expression,
+                analysis,
+            )
+        )
+
+        opportunities = self._subquery_opportunity_analyzer.analyze(
+            characteristics,
+        )
+
+        return self._subquery_candidate_generator.generate(
+            analysis,
+            opportunities,
+            original_sql,
         )
 
     def generate_candidates(

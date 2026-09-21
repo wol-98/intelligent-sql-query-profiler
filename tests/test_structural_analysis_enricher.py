@@ -670,3 +670,124 @@ def test_analyze_subquery_opportunities_handles_derived_table():
     ] == [
         OptimizationOpportunityType.DERIVED_TABLE_ANALYSIS,
     ]
+
+def test_generate_subquery_candidates_integrates_full_pipeline():
+    sql = """
+        SELECT *
+        FROM orders o
+        WHERE EXISTS (
+            SELECT 1
+            FROM order_items oi
+            WHERE oi.order_id = o.order_id
+        )
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    result = StructuralAnalysisEnricher().generate_subquery_candidates(
+        expression,
+        analysis,
+        sql,
+    )
+
+    assert result.candidates
+
+    assert len(result.candidates) == 1
+
+    candidate = result.candidates[0]
+
+    assert candidate.candidate_id == "SUBQ-CAND-0001"
+    assert candidate.alternative_type.value == "EXISTS"
+    assert candidate.status == CandidateStatus.CANDIDATE
+    assert candidate.semantic_safety.value == "NOT_ASSESSED"
+    assert candidate.original_sql == sql
+    assert candidate.alternative_sql is None
+
+
+def test_generate_subquery_candidates_handles_in():
+    sql = """
+        SELECT *
+        FROM orders
+        WHERE customer_id IN (
+            SELECT customer_id
+            FROM customers
+        )
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    result = StructuralAnalysisEnricher().generate_subquery_candidates(
+        expression,
+        analysis,
+        sql,
+    )
+
+    assert len(result.candidates) == 1
+
+    candidate = result.candidates[0]
+
+    assert candidate.alternative_type.value == "IN"
+    assert candidate.status == CandidateStatus.CANDIDATE
+    assert candidate.semantic_safety.value == "NOT_ASSESSED"
+    assert candidate.alternative_sql is None
+
+
+def test_generate_subquery_candidates_handles_derived_table():
+    sql = """
+        SELECT x.customer_id
+        FROM (
+            SELECT customer_id
+            FROM orders
+        ) AS x
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    result = StructuralAnalysisEnricher().generate_subquery_candidates(
+        expression,
+        analysis,
+        sql,
+    )
+
+    assert len(result.candidates) == 1
+
+    candidate = result.candidates[0]
+
+    assert candidate.alternative_type.value == "DERIVED_TABLE"
+    assert candidate.status == CandidateStatus.CANDIDATE
+    assert candidate.semantic_safety.value == "NOT_ASSESSED"
+    assert candidate.alternative_sql is None
+
+
+def test_generate_subquery_candidates_does_not_create_candidate_for_correlation_alone():
+    sql = """
+        SELECT *
+        FROM orders o
+        WHERE EXISTS (
+            SELECT 1
+            FROM order_items oi
+            WHERE oi.order_id = o.order_id
+        )
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    result = StructuralAnalysisEnricher().generate_subquery_candidates(
+        expression,
+        analysis,
+        sql,
+    )
+
+    candidate_types = [
+        candidate.alternative_type.value
+        for candidate in result.candidates
+    ]
+
+    assert candidate_types == ["EXISTS"]
