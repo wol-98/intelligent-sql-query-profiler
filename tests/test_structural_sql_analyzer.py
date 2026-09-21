@@ -6,7 +6,6 @@ from api.schemas.structural_optimization import (
 )
 from api.services.structural_sql_analyzer import StructuralSQLAnalyzer
 
-
 def analyze(sql: str):
     expression = parse_one(sql, dialect="postgres")
     return StructuralSQLAnalyzer().analyze(expression)
@@ -334,3 +333,137 @@ def test_findings_have_structural_layers():
     assert StructuralLayer.WHERE in finding_layers
     assert StructuralLayer.ORDER_BY in finding_layers
     assert StructuralLayer.LIMIT_OFFSET in finding_layers
+
+def test_analyzer_detects_cte_definition_and_reference():
+    sql = """
+        WITH customer_orders AS (
+            SELECT customer_id, COUNT(*) AS order_count
+            FROM orders
+            GROUP BY customer_id
+        )
+        SELECT *
+        FROM customer_orders
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    cte_findings = [
+        finding
+        for finding in analysis.findings
+        if finding.layer == StructuralLayer.CTE
+    ]
+
+    assert len(cte_findings) == 2
+
+    assert cte_findings[0].finding_type == "CTE_DEFINITION"
+    assert "cte_name=customer_orders" in cte_findings[0].evidence
+
+    assert cte_findings[1].finding_type == "CTE_REFERENCE"
+    assert "cte_name=customer_orders" in cte_findings[1].evidence
+
+    assert StructuralLayer.CTE in analysis.layers_detected
+
+
+def test_analyzer_detects_multiple_cte_definitions_and_references():
+    sql = """
+        WITH
+        customer_orders AS (
+            SELECT customer_id
+            FROM orders
+        ),
+        active_customers AS (
+            SELECT customer_id
+            FROM customers
+            WHERE status = 'active'
+        )
+        SELECT co.customer_id
+        FROM customer_orders co
+        JOIN active_customers ac
+            ON co.customer_id = ac.customer_id
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    cte_findings = [
+        finding
+        for finding in analysis.findings
+        if finding.layer == StructuralLayer.CTE
+    ]
+
+    definitions = [
+        finding
+        for finding in cte_findings
+        if finding.finding_type == "CTE_DEFINITION"
+    ]
+
+    references = [
+        finding
+        for finding in cte_findings
+        if finding.finding_type == "CTE_REFERENCE"
+    ]
+
+    assert len(definitions) == 2
+    assert len(references) == 2
+
+    assert "cte_name=customer_orders" in definitions[0].evidence
+    assert "cte_name=active_customers" in definitions[1].evidence
+
+
+def test_analyzer_detects_recursive_cte():
+    sql = """
+        WITH RECURSIVE numbers AS (
+            SELECT 1 AS n
+            UNION ALL
+            SELECT n + 1
+            FROM numbers
+            WHERE n < 10
+        )
+        SELECT *
+        FROM numbers
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    cte_findings = [
+        finding
+        for finding in analysis.findings
+        if finding.layer == StructuralLayer.CTE
+    ]
+
+    finding_types = [
+        finding.finding_type
+        for finding in cte_findings
+    ]
+
+    assert "CTE_DEFINITION" in finding_types
+    assert "CTE_REFERENCE" in finding_types
+    assert "RECURSIVE_CTE" in finding_types
+
+
+def test_analyzer_does_not_classify_physical_table_inside_cte_as_cte_reference():
+    sql = """
+        WITH customer_orders AS (
+            SELECT customer_id
+            FROM orders
+        )
+        SELECT *
+        FROM customer_orders
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    cte_references = [
+        finding
+        for finding in analysis.findings
+        if (
+            finding.layer == StructuralLayer.CTE
+            and finding.finding_type == "CTE_REFERENCE"
+        )
+    ]
+
+    assert len(cte_references) == 1
+    assert "cte_name=customer_orders" in cte_references[0].evidence

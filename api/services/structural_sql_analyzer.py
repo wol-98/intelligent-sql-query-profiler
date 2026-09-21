@@ -76,6 +76,66 @@ class StructuralSQLAnalyzer:
         # Query blocks
         # ---------------------------------------------------------
 
+        # ---------------------------------------------------------
+        # CTEs
+        # ---------------------------------------------------------
+
+        with_expression = expression.args.get("with")
+
+        if with_expression is not None:
+            cte_expressions = with_expression.args.get("expressions") or []
+
+            cte_names = {
+                cte.alias_or_name
+                for cte in cte_expressions
+                if cte.alias_or_name
+            }
+
+            for cte in cte_expressions:
+                cte_name = cte.alias_or_name
+
+                add_finding(
+                    layer=StructuralLayer.CTE,
+                    finding_type="CTE_DEFINITION",
+                    description=(
+                        f"Query contains CTE definition "
+                        f"{cte_name!r}."
+                    ),
+                    evidence=(
+                        f"cte_name={cte_name}; "
+                        f"definition={sql_text(cte)}"
+                    ),
+                )
+
+            if with_expression.args.get("recursive") is True:
+                add_finding(
+                    layer=StructuralLayer.CTE,
+                    finding_type="RECURSIVE_CTE",
+                    description="Query contains a recursive CTE.",
+                    evidence=(
+                        f"cte_names={', '.join(sorted(cte_names))}"
+                    ),
+                )
+
+            for table in expression.find_all(exp.Table):
+                if table.name in cte_names:
+                    parent = table.parent
+
+                    if isinstance(parent, exp.From) or isinstance(
+                        parent, exp.Join
+                    ):
+                        add_finding(
+                            layer=StructuralLayer.CTE,
+                            finding_type="CTE_REFERENCE",
+                            description=(
+                                f"Query references CTE "
+                                f"{table.name!r}."
+                            ),
+                            evidence=(
+                                f"cte_name={table.name}; "
+                                f"reference={sql_text(table)}"
+                            ),
+                        )
         selects = list(expression.find_all(exp.Select))
 
         # ---------------------------------------------------------
