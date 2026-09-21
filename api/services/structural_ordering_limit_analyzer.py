@@ -70,6 +70,13 @@ class StructuralOrderingLimitAnalyzer:
                 characteristics,
             )
 
+            self._add_filter_with_ordering_characteristic(
+                select,
+                analysis,
+                block_number,
+                characteristics,
+            )
+
         return OrderingLimitCharacteristicResult(
             characteristics=characteristics
         )
@@ -247,6 +254,53 @@ class StructuralOrderingLimitAnalyzer:
                 evidence_quality=EvidenceQuality.STRUCTURED,
                 rationale=(
                     "A WHERE predicate and row-limiting operation "
+                    "coexist within the query block."
+                ),
+            )
+        )
+
+    @staticmethod
+    def _add_filter_with_ordering_characteristic(
+        select: exp.Select,
+        analysis: StructuralAnalysis,
+        query_block: int,
+        characteristics: list[OrderingLimitCharacteristic],
+    ) -> None:
+        where = select.args.get("where")
+        order = select.args.get("order")
+
+        if where is None or order is None:
+            return
+
+        where_findings = (
+            StructuralOrderingLimitAnalyzer._query_block_finding_indices(
+                analysis,
+                StructuralLayer.WHERE,
+                query_block,
+            )
+        )
+
+        ordering_findings = (
+            StructuralOrderingLimitAnalyzer._query_block_finding_indices(
+                analysis,
+                StructuralLayer.ORDER_BY,
+                query_block,
+            )
+        )
+
+        if not where_findings or not ordering_findings:
+            return
+
+        characteristics.append(
+            OrderingLimitCharacteristic(
+                finding_index=ordering_findings[0],
+                characteristic_type=(
+                    OrderingLimitCharacteristicType.FILTER_WITH_ORDERING
+                ),
+                evidence_status=EvidenceStatus.COMPLETE,
+                evidence_quality=EvidenceQuality.STRUCTURED,
+                rationale=(
+                    "A WHERE predicate and ORDER BY operation "
                     "coexist within the query block."
                 ),
             )

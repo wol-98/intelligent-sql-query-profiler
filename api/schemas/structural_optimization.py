@@ -178,6 +178,7 @@ class OrderingLimitCharacteristicType(str, Enum):
     LIMIT = "LIMIT"
     OFFSET = "OFFSET"
     FILTER_WITH_ROW_LIMIT = "FILTER_WITH_ROW_LIMIT"
+    FILTER_WITH_ORDERING = "FILTER_WITH_ORDERING"
 
 
 class OrderingLimitCharacteristic(BaseModel):
