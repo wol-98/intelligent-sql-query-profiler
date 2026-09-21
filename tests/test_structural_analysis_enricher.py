@@ -735,6 +735,36 @@ def test_generate_subquery_candidates_handles_in():
     assert candidate.semantic_safety.value == "NOT_ASSESSED"
     assert candidate.alternative_sql is None
 
+def test_generate_subquery_candidates_handles_any():
+    sql = """
+        SELECT *
+        FROM orders
+        WHERE customer_id = ANY (
+            SELECT customer_id
+            FROM customers
+        )
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    result = StructuralAnalysisEnricher().generate_subquery_candidates(
+        expression,
+        analysis,
+        sql,
+    )
+
+    assert len(result.candidates) == 1
+
+    candidate = result.candidates[0]
+
+    assert candidate.candidate_id == "SUBQ-CAND-0001"
+    assert candidate.alternative_type.value == "ANY"
+    assert candidate.status == CandidateStatus.CANDIDATE
+    assert candidate.semantic_safety.value == "NOT_ASSESSED"
+    assert candidate.original_sql == sql
+    assert candidate.alternative_sql is None
 
 def test_generate_subquery_candidates_handles_derived_table():
     sql = """
