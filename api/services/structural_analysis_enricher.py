@@ -4,6 +4,7 @@ from sqlglot import exp
 
 from api.schemas.structural_optimization import (
     AggregationWindowCharacteristicResult,
+    CTECharacteristicResult,
     OptimizationCandidate,
     OrderingLimitCharacteristicResult,
     StructuralAlternativeResult,
@@ -18,6 +19,12 @@ from api.services.structural_aggregation_analyzer import (
 )
 from api.services.structural_candidate_generator import (
     StructuralCandidateGenerator,
+)
+from api.services.structural_cte_analyzer import (
+    StructuralCTEAnalyzer,
+)
+from api.services.structural_cte_opportunity_analyzer import (
+    StructuralCTEOpportunityAnalyzer,
 )
 from api.services.structural_finding_classifier import (
     StructuralFindingClassifier,
@@ -48,8 +55,9 @@ class StructuralAnalysisEnricher:
     This service deliberately keeps StructuralAnalysis unchanged. It acts as
     an integration layer between structural analysis, finding classification,
     structural opportunity analysis, candidate generation, aggregation and
-    window analysis, ordering/row-limiting analysis, and subquery analysis
-    without performing SQL execution, benchmarking, or decision-making.
+    window analysis, ordering/row-limiting analysis, subquery analysis, and
+    CTE analysis without performing SQL execution, benchmarking, or
+    decision-making.
     """
 
     def __init__(
@@ -67,6 +75,8 @@ class StructuralAnalysisEnricher:
         subquery_candidate_generator: (
             StructuralSubqueryCandidateGenerator | None
         ) = None,
+        cte_analyzer: StructuralCTEAnalyzer | None = None,
+        cte_opportunity_analyzer: StructuralCTEOpportunityAnalyzer | None = None,
     ) -> None:
         self._classifier = classifier or StructuralFindingClassifier()
 
@@ -102,6 +112,15 @@ class StructuralAnalysisEnricher:
         self._subquery_candidate_generator = (
             subquery_candidate_generator
             or StructuralSubqueryCandidateGenerator()
+        )
+
+        self._cte_analyzer = (
+            cte_analyzer or StructuralCTEAnalyzer()
+        )
+
+        self._cte_opportunity_analyzer = (
+            cte_opportunity_analyzer
+            or StructuralCTEOpportunityAnalyzer()
         )
 
     def classify(
@@ -196,6 +215,29 @@ class StructuralAnalysisEnricher:
         )
 
         return self._subquery_opportunity_analyzer.analyze(
+            characteristics,
+        )
+
+    def analyze_cte_opportunities(
+        self,
+        expression: exp.Expression,
+        analysis: StructuralAnalysis,
+    ) -> StructuralOpportunityResult:
+        """Return CTE-related structural opportunities.
+
+        CTE characteristics are detected first and then passed to the
+        dedicated CTE opportunity analyzer.
+
+        The original StructuralAnalysis instance is not modified.
+        """
+        characteristics: CTECharacteristicResult = (
+            self._cte_analyzer.analyze(
+                expression,
+                analysis,
+            )
+        )
+
+        return self._cte_opportunity_analyzer.analyze(
             characteristics,
         )
 

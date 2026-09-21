@@ -303,20 +303,6 @@ def test_generate_candidates_integrates_classification_opportunity_and_generatio
     assert candidate.optimized_sql is None
     assert candidate.index_ddl is None
 
-    assert isinstance(result, list)
-
-    assert len(result) == 1
-
-    candidate = result[0]
-
-    assert isinstance(candidate, OptimizationCandidate)
-    assert candidate.status == CandidateStatus.CANDIDATE
-    assert candidate.alternative_type == AlternativeType.INDEX
-    assert candidate.source_layer == "WHERE"
-    assert candidate.original_sql == original_sql
-    assert candidate.optimized_sql is None
-    assert candidate.index_ddl is None
-
 
 def test_analyze_aggregation_window_characteristics_integrates_analyzers():
     sql = """
@@ -509,6 +495,8 @@ def test_analyze_ordering_limit_characteristics_does_not_modify_analysis():
     ]
 
     assert resulting_findings == original_findings
+
+
 def test_analyze_subquery_opportunities_integrates_detection_and_analysis():
     sql = """
         SELECT *
@@ -671,6 +659,7 @@ def test_analyze_subquery_opportunities_handles_derived_table():
         OptimizationOpportunityType.DERIVED_TABLE_ANALYSIS,
     ]
 
+
 def test_generate_subquery_candidates_integrates_full_pipeline():
     sql = """
         SELECT *
@@ -735,6 +724,7 @@ def test_generate_subquery_candidates_handles_in():
     assert candidate.semantic_safety.value == "NOT_ASSESSED"
     assert candidate.alternative_sql is None
 
+
 def test_generate_subquery_candidates_handles_any():
     sql = """
         SELECT *
@@ -765,6 +755,7 @@ def test_generate_subquery_candidates_handles_any():
     assert candidate.semantic_safety.value == "NOT_ASSESSED"
     assert candidate.original_sql == sql
     assert candidate.alternative_sql is None
+
 
 def test_generate_subquery_candidates_handles_derived_table():
     sql = """
@@ -821,3 +812,87 @@ def test_generate_subquery_candidates_does_not_create_candidate_for_correlation_
     ]
 
     assert candidate_types == ["EXISTS"]
+
+
+def test_analyze_cte_opportunities_integrates_cte_analysis():
+    sql = """
+        WITH customer_orders AS (
+            SELECT customer_id, COUNT(*) AS order_count
+            FROM orders
+            GROUP BY customer_id
+        )
+        SELECT *
+        FROM customer_orders
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    result = StructuralAnalysisEnricher().analyze_cte_opportunities(
+        expression,
+        analysis,
+    )
+
+    assert isinstance(result, StructuralOpportunityResult)
+
+    assert [
+        opportunity.opportunity_type
+        for opportunity in result.opportunities
+    ] == [
+        OptimizationOpportunityType.CTE_ANALYSIS,
+        OptimizationOpportunityType.CTE_ANALYSIS,
+    ]
+
+    assert [
+        opportunity.finding_index
+        for opportunity in result.opportunities
+    ] == [0, 1]
+
+    assert all(
+        opportunity.status == OptimizationOpportunityStatus.IDENTIFIED
+        for opportunity in result.opportunities
+    )
+
+
+def test_analyze_cte_opportunities_integrates_recursive_cte():
+    sql = """
+        WITH RECURSIVE numbers AS (
+            SELECT 1 AS n
+            UNION ALL
+            SELECT n + 1
+            FROM numbers
+            WHERE n < 5
+        )
+        SELECT n
+        FROM numbers
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    result = StructuralAnalysisEnricher().analyze_cte_opportunities(
+        expression,
+        analysis,
+    )
+
+    assert isinstance(result, StructuralOpportunityResult)
+
+    assert [
+        opportunity.opportunity_type
+        for opportunity in result.opportunities
+    ] == [
+        OptimizationOpportunityType.CTE_ANALYSIS,
+        OptimizationOpportunityType.CTE_ANALYSIS,
+        OptimizationOpportunityType.CTE_ANALYSIS,
+        OptimizationOpportunityType.RECURSIVE_CTE_ANALYSIS,
+    ]
+
+    assert [
+        opportunity.finding_index
+        for opportunity in result.opportunities
+    ] == [0, 3, 3, 1]
+
+    assert all(
+        opportunity.status == OptimizationOpportunityStatus.IDENTIFIED
+        for opportunity in result.opportunities
+    )
