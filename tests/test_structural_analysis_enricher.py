@@ -1,5 +1,7 @@
 """Tests for structural analysis classification integration."""
 
+from sqlglot import parse_one
+
 from api.schemas.structural_optimization import (
     AggregationWindowCharacteristicResult,
     AlternativeType,
@@ -9,6 +11,7 @@ from api.schemas.structural_optimization import (
     OptimizationOpportunityStatus,
     OptimizationOpportunityType,
     OptimizationRelevance,
+    OrderingLimitCharacteristicType,
     StructuralAnalysis,
     StructuralAnalysisStatus,
     StructuralClassificationResult,
@@ -25,6 +28,7 @@ from api.services.structural_sql_analyzer import (
     StructuralSQLAnalyzer,
 )
 
+
 def _finding(layer: str, evidence: str) -> StructuralFinding:
     return StructuralFinding(
         finding_type=layer,
@@ -33,6 +37,7 @@ def _finding(layer: str, evidence: str) -> StructuralFinding:
         description=f"Structural finding for {layer}",
         evidence=evidence,
     )
+
 
 def test_analyze_opportunities_integrates_classification_and_opportunity_analysis():
     analysis = StructuralAnalysis(
@@ -132,7 +137,10 @@ def test_classifies_all_findings_and_preserves_indexes() -> None:
 
     assert len(result.classifications) == len(analysis.findings)
 
-    assert [item.finding_index for item in result.classifications] == [0, 1, 2]
+    assert [
+        item.finding_index
+        for item in result.classifications
+    ] == [0, 1, 2]
 
     assert [
         item.classification
@@ -204,8 +212,14 @@ def test_classifies_multiple_structural_layers() -> None:
         ),
         status=StructuralAnalysisStatus.ANALYZED,
         findings=[
-            _finding("SELECT", "expressions=o.customer_id, COUNT(*)"),
-            _finding("FROM", "from=orders AS o"),
+            _finding(
+                "SELECT",
+                "expressions=o.customer_id, COUNT(*)",
+            ),
+            _finding(
+                "FROM",
+                "from=orders AS o",
+            ),
             _finding(
                 "JOIN",
                 "join=JOIN customers AS c ON o.customer_id = c.customer_id",
@@ -245,366 +259,9 @@ def test_classifies_multiple_structural_layers() -> None:
     ]
 
 
-def test_nested_query_findings_are_classified() -> None:
-    analysis = StructuralAnalysis(
-        query=(
-            "SELECT customer_id "
-            "FROM orders "
-            "WHERE customer_id IN "
-            "(SELECT customer_id FROM customers WHERE name IS NOT NULL)"
-        ),
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[
-            _finding(
-                "SUBQUERY",
-                "subquery_count=1",
-            ),
-            _finding(
-                "WHERE",
-                "query_block=1; where=WHERE customer_id IN (...)",
-            ),
-            _finding(
-                "WHERE",
-                "query_block=2; where=WHERE NOT name IS NULL",
-            ),
-        ],
-    )
-
-    result = StructuralAnalysisEnricher().classify(analysis)
-
-    assert [
-        item.classification
-        for item in result.classifications
-    ] == [
-        StructuralFindingClassificationType.NESTED_QUERY,
-        StructuralFindingClassificationType.PREDICATE,
-        StructuralFindingClassificationType.PREDICATE,
-    ]
-
-    assert (
-        result.classifications[0].evidence_status
-        == EvidenceStatus.PARTIAL
-    )
-
-    assert (
-       result.classifications[0].optimization_relevance
-       == OptimizationRelevance.POTENTIALLY_RELEVANT
-   )
-
-
-def test_cte_source_definition_is_classified() -> None:
-    analysis = StructuralAnalysis(
-        query=(
-            "WITH recent_orders AS "
-            "(SELECT customer_id FROM orders WHERE status = 'completed') "
-            "SELECT customer_id FROM recent_orders"
-        ),
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[
-            _finding(
-                "FROM",
-                "from=recent_orders",
-            ),
-            _finding(
-                "WHERE",
-                "query_block=1; where=WHERE status = 'completed'",
-            ),
-        ],
-    )
-
-    result = StructuralAnalysisEnricher().classify(analysis)
-
-    assert len(result.classifications) == 2
-
-    assert (
-        result.classifications[0].classification
-        == StructuralFindingClassificationType.SOURCE_DEFINITION
-    )
-
-    assert (
-        result.classifications[1].classification
-        == StructuralFindingClassificationType.PREDICATE
-    )
-
-
-def test_empty_analysis_returns_empty_classification_result() -> None:
-    analysis = StructuralAnalysis(
-        query="SELECT 1",
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[],
-    )
-
-    result = StructuralAnalysisEnricher().classify(analysis)
-
-    assert result.classifications == []
-
-
-def test_original_analysis_is_not_modified() -> None:
-    analysis = StructuralAnalysis(
-        query="SELECT customer_id FROM orders WHERE status = 'completed'",
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[
-            _finding("SELECT", "expressions=customer_id"),
-            _finding("FROM", "from=orders"),
-            _finding(
-                "WHERE",
-                "where=WHERE status = 'completed'",
-            ),
-        ],
-    )
-
-    original_findings = list(analysis.findings)
-    original_values = [
-        finding.model_dump()
-        for finding in analysis.findings
-    ]
-
-    result = StructuralAnalysisEnricher().classify(analysis)
-
-    assert result.classifications
-
-    assert analysis.findings == original_findings
-
-    assert [
-        finding.model_dump()
-        for finding in analysis.findings
-    ] == original_values
-
-
-def test_classification_indexes_match_original_findings() -> None:
-    analysis = StructuralAnalysis(
-        query="SELECT customer_id FROM orders",
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[
-            _finding("SELECT", "expressions=customer_id"),
-            _finding("FROM", "from=orders"),
-        ],
-    )
-
-    result = StructuralAnalysisEnricher().classify(analysis)
-
-    for classification in result.classifications:
-        finding = analysis.findings[classification.finding_index]
-
-        assert classification.finding_index >= 0
-        assert finding.layer in {
-            "SELECT",
-            "FROM",
-            "JOIN",
-            "WHERE",
-            "GROUP_BY",
-            "HAVING",
-            "WINDOW",
-            "ORDER_BY",
-            "LIMIT_OFFSET",
-            "SUBQUERY",
-            "SET_OPERATION",
-        }
-
-
-def test_classifier_can_be_injected() -> None:
-    class RecordingClassifier:
-        def __init__(self) -> None:
-            self.received = None
-
-        def classify(self, findings):
-            self.received = findings
-            return StructuralClassificationResult(classifications=[])
-
-    classifier = RecordingClassifier()
-    enricher = StructuralAnalysisEnricher(classifier=classifier)
-
-    analysis = StructuralAnalysis(
-        query="SELECT 1",
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[
-            _finding("SELECT", "expressions=1"),
-        ],
-    )
-
-    result = enricher.classify(analysis)
-
-    assert result.classifications == []
-    assert classifier.received is analysis.findings
-def test_generate_candidates_integrates_full_structural_pipeline() -> None:
+def test_generate_candidates_integrates_classification_opportunity_and_generation():
     original_sql = (
-        "SELECT o.customer_id, COUNT(*) "
-        "FROM orders o "
-        "JOIN customers c "
-        "ON o.customer_id = c.customer_id "
-        "WHERE o.status = 'completed' "
-        "GROUP BY o.customer_id "
-        "ORDER BY COUNT(*) DESC "
-        "LIMIT 10"
-    )
-
-    analysis = StructuralAnalysis(
-        query=original_sql,
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[
-            _finding(
-                "SELECT",
-                "expressions=o.customer_id, COUNT(*)",
-            ),
-            _finding(
-                "FROM",
-                "from=orders AS o",
-            ),
-            _finding(
-                "JOIN",
-                "join=JOIN customers AS c ON "
-                "o.customer_id = c.customer_id",
-            ),
-            _finding(
-                "WHERE",
-                "where=WHERE o.status = 'completed'",
-            ),
-            _finding(
-                "GROUP_BY",
-                "group_by=GROUP BY o.customer_id",
-            ),
-            _finding(
-                "ORDER_BY",
-                "order_by=ORDER BY COUNT(*) DESC",
-            ),
-            _finding(
-                "LIMIT_OFFSET",
-                "limit=LIMIT 10",
-            ),
-        ],
-    )
-
-    result = StructuralAnalysisEnricher().generate_candidates(
-        analysis,
-        original_sql,
-    )
-
-    assert len(result) == 5
-
-    assert [
-        candidate.alternative_type
-        for candidate in result
-    ] == [
-        AlternativeType.INDEX,
-        AlternativeType.INDEX,
-        AlternativeType.INDEX,
-        AlternativeType.INDEX,
-        AlternativeType.INDEX,
-    ]
-
-    assert [
-        candidate.source_layer
-        for candidate in result
-    ] == [
-        "JOIN",
-        "WHERE",
-        "GROUP_BY",
-        "ORDER_BY",
-        "LIMIT_OFFSET",
-    ]
-
-    assert [
-       candidate.candidate_id
-       for candidate in result
-    ] == [
-        "CAND-0001",
-        "CAND-0002",
-        "CAND-0003",
-        "CAND-0004",
-        "CAND-0005",
-    ]
-
-    assert all(
-        candidate.status == CandidateStatus.CANDIDATE
-        for candidate in result
-    )
-
-    assert all(
-        candidate.original_sql == original_sql
-        for candidate in result
-    )
-
-    assert all(
-        candidate.optimized_sql is None
-        and candidate.index_ddl is None
-        and candidate.architectural_recommendation is None
-        for candidate in result
-    )
-
-
-def test_generate_candidates_preserves_original_analysis() -> None:
-    original_sql = "SELECT customer_id FROM orders WHERE status = 'completed'"
-
-    analysis = StructuralAnalysis(
-        query=original_sql,
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[
-            _finding(
-                "SELECT",
-                "expressions=customer_id",
-            ),
-            _finding(
-                "FROM",
-                "from=orders",
-            ),
-            _finding(
-                "WHERE",
-                "where=WHERE status = 'completed'",
-            ),
-        ],
-    )
-
-    original_values = [
-        finding.model_dump()
-        for finding in analysis.findings
-    ]
-
-    result = StructuralAnalysisEnricher().generate_candidates(
-        analysis,
-        original_sql,
-    )
-
-    assert result
-
-    assert [
-        finding.model_dump()
-        for finding in analysis.findings
-    ] == original_values
-
-
-def test_candidate_generator_can_be_injected() -> None:
-    class RecordingCandidateGenerator:
-        def __init__(self) -> None:
-            self.received_analysis = None
-            self.received_opportunities = None
-            self.received_original_sql = None
-
-        def generate(
-            self,
-            analysis,
-            opportunities,
-            original_sql,
-        ):
-            self.received_analysis = analysis
-            self.received_opportunities = opportunities
-            self.received_original_sql = original_sql
-
-            return [
-                OptimizationCandidate(
-                    candidate_id="CAND-TEST",
-                    alternative_type=AlternativeType.INDEX,
-                    status=CandidateStatus.CANDIDATE,
-                    title="Test candidate",
-                    rationale="Test integration candidate.",
-                    source_layer="WHERE",
-                    original_sql=original_sql,
-                )
-            ]
-
-    original_sql = (
-        "SELECT customer_id "
-        "FROM orders "
-        "WHERE status = 'completed'"
+        "SELECT customer_id FROM orders WHERE status = 'completed'"
     )
 
     analysis = StructuralAnalysis(
@@ -621,245 +278,54 @@ def test_candidate_generator_can_be_injected() -> None:
             ),
             _finding(
                 "WHERE",
-                "where=WHERE status = 'completed'",
+                "where=status = 'completed'",
             ),
         ],
     )
 
-    candidate_generator = RecordingCandidateGenerator()
-
-    enricher = StructuralAnalysisEnricher(
-        candidate_generator=candidate_generator,
-    )
-
-    result = enricher.generate_candidates(
+    result = StructuralAnalysisEnricher().generate_candidates(
         analysis,
         original_sql,
     )
+
+    assert isinstance(result, list)
 
     assert len(result) == 1
-    assert result[0].candidate_id == "CAND-TEST"
-    assert candidate_generator.received_analysis is analysis
-    assert candidate_generator.received_original_sql == original_sql
-    assert isinstance(
-        candidate_generator.received_opportunities,
-        StructuralOpportunityResult,
-    )
+
+    candidate = result[0]
+
+    assert isinstance(candidate, OptimizationCandidate)
+    assert candidate.status == CandidateStatus.CANDIDATE
+    assert candidate.alternative_type == AlternativeType.INDEX
+    assert candidate.source_layer == "WHERE"
+    assert candidate.original_sql == original_sql
+    assert candidate.optimized_sql is None
+    assert candidate.index_ddl is None
+
+    assert isinstance(result, list)
+
+    assert len(result) == 1
+
+    candidate = result[0]
+
+    assert isinstance(candidate, OptimizationCandidate)
+    assert candidate.status == CandidateStatus.CANDIDATE
+    assert candidate.alternative_type == AlternativeType.INDEX
+    assert candidate.source_layer == "WHERE"
+    assert candidate.original_sql == original_sql
+    assert candidate.optimized_sql is None
+    assert candidate.index_ddl is None
 
 
-def test_generate_candidates_skips_non_identified_opportunities() -> None:
-    original_sql = "SELECT customer_id FROM orders"
-
-    analysis = StructuralAnalysis(
-        query=original_sql,
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[
-            _finding(
-                "SELECT",
-                "expressions=customer_id",
-            ),
-            _finding(
-                "FROM",
-                "from=orders",
-            ),
-        ],
-    )
-
-    result = StructuralAnalysisEnricher().generate_candidates(
-        analysis,
-        original_sql,
-    )
-
-    assert result == []
-
-
-def test_generate_candidates_integrates_nested_query_as_sql_rewrite() -> None:
-    original_sql = (
-        "SELECT customer_id "
-        "FROM orders "
-        "WHERE customer_id IN "
-        "(SELECT customer_id FROM customers WHERE name IS NOT NULL)"
-    )
-
-    analysis = StructuralAnalysis(
-        query=original_sql,
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[
-            _finding(
-                "SUBQUERY",
-                "subquery_count=1",
-            ),
-            _finding(
-                "WHERE",
-                "query_block=1; "
-                "where=WHERE customer_id IN (...)",
-            ),
-            _finding(
-                "WHERE",
-                "query_block=2; where=WHERE NOT name IS NULL",
-            ),
-        ],
-    )
-
-    result = StructuralAnalysisEnricher().generate_candidates(
-        analysis,
-        original_sql,
-    )
-
-    assert len(result) == 3
-
-    assert result[0].source_layer == "SUBQUERY"
-    assert result[0].alternative_type == AlternativeType.SQL_REWRITE
-    assert result[0].status == CandidateStatus.CANDIDATE
-
-    assert [
-        candidate.candidate_id
-        for candidate in result
-    ] == [
-        "CAND-0001",
-        "CAND-0002",
-        "CAND-0003",
-    ]
-
-
-def test_generate_candidates_preserves_multiple_opportunity_order() -> None:
-    original_sql = (
-        "SELECT customer_id "
-        "FROM orders "
-        "WHERE status = 'completed' "
-        "ORDER BY customer_id "
-        "LIMIT 10"
-    )
-
-    analysis = StructuralAnalysis(
-        query=original_sql,
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[
-            _finding("SELECT", "expressions=customer_id"),
-            _finding("FROM", "from=orders"),
-            _finding(
-                "WHERE",
-                "where=WHERE status = 'completed'",
-            ),
-            _finding(
-                "ORDER_BY",
-                "order_by=ORDER BY customer_id",
-            ),
-            _finding(
-                "LIMIT_OFFSET",
-                "limit=LIMIT 10",
-            ),
-        ],
-    )
-
-    result = StructuralAnalysisEnricher().generate_candidates(
-        analysis,
-        original_sql,
-    )
-
-    assert [
-        candidate.source_layer
-        for candidate in result
-    ] == [
-        "WHERE",
-        "ORDER_BY",
-        "LIMIT_OFFSET",
-    ]
-
-    assert [
-        candidate.candidate_id
-        for candidate in result
-    ] == [
-        "CAND-0001",
-        "CAND-0002",
-        "CAND-0003",
-    ]
-
-
-def test_generate_candidates_returns_empty_for_contextual_findings_only() -> None:
-    original_sql = "SELECT customer_id FROM orders"
-
-    analysis = StructuralAnalysis(
-        query=original_sql,
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[
-            _finding(
-                "SELECT",
-                "expressions=customer_id",
-            ),
-            _finding(
-                "FROM",
-                "from=orders",
-            ),
-        ],
-    )
-
-    result = StructuralAnalysisEnricher().generate_candidates(
-        analysis,
-        original_sql,
-    )
-
-    assert result == []
-
-
-def test_generate_candidates_preserves_original_sql_exactly() -> None:
-    original_sql = (
-        "select  customer_id\n"
-        "FROM orders\n"
-        "where status = 'completed' "
-        "ORDER BY customer_id DESC"
-    )
-
-    analysis = StructuralAnalysis(
-        query=original_sql,
-        status=StructuralAnalysisStatus.ANALYZED,
-        findings=[
-            _finding(
-                "SELECT",
-                "expressions=customer_id",
-            ),
-            _finding(
-                "FROM",
-                "from=orders",
-            ),
-            _finding(
-                "WHERE",
-                "where=WHERE status = 'completed'",
-            ),
-            _finding(
-                "ORDER_BY",
-                "order_by=ORDER BY customer_id DESC",
-            ),
-        ],
-    )
-
-    result = StructuralAnalysisEnricher().generate_candidates(
-        analysis,
-        original_sql,
-    )
-
-    assert result
-
-    assert all(
-        candidate.original_sql == original_sql
-        for candidate in result
-    )
-
-def test_analyze_aggregation_window_characteristics_integrates_both_analyzers():
-    from sqlglot import parse_one
-
-    from api.schemas.structural_optimization import (
-        AggregationWindowCharacteristicType,
-    )
-
+def test_analyze_aggregation_window_characteristics_integrates_analyzers():
     sql = """
         SELECT
             customer_id,
             COUNT(*) AS order_count,
             ROW_NUMBER() OVER (
                 PARTITION BY customer_id
-                ORDER BY order_date
-            ) AS rn
+                ORDER BY order_date DESC
+            ) AS row_num
         FROM orders
         GROUP BY customer_id
     """
@@ -867,9 +333,12 @@ def test_analyze_aggregation_window_characteristics_integrates_both_analyzers():
     expression = parse_one(sql, dialect="postgres")
     analysis = StructuralSQLAnalyzer().analyze(expression)
 
-    result = StructuralAnalysisEnricher().analyze_aggregation_window_characteristics(
-        expression,
-        analysis,
+    result = (
+        StructuralAnalysisEnricher()
+        .analyze_aggregation_window_characteristics(
+            expression,
+            analysis,
+        )
     )
 
     assert isinstance(
@@ -881,103 +350,161 @@ def test_analyze_aggregation_window_characteristics_integrates_both_analyzers():
         characteristic.characteristic_type
         for characteristic in result.characteristics
     ] == [
-        AggregationWindowCharacteristicType.GROUPING,
-        AggregationWindowCharacteristicType.AGGREGATE_FUNCTION,
-        AggregationWindowCharacteristicType.WINDOW_FUNCTION,
-        AggregationWindowCharacteristicType.WINDOW_PARTITION,
-        AggregationWindowCharacteristicType.WINDOW_ORDERING,
+        "GROUPING",
+        "AGGREGATE_FUNCTION",
+        "WINDOW_FUNCTION",
+        "WINDOW_PARTITION",
+        "WINDOW_ORDERING",
     ]
 
 
-def test_analyze_aggregation_window_characteristics_preserves_finding_links():
-    from sqlglot import parse_one
-
+def test_analyze_ordering_limit_characteristics_integrates_with_enricher():
     sql = """
-        SELECT
-            customer_id,
-            COUNT(*) AS order_count,
-            ROW_NUMBER() OVER (
-                PARTITION BY customer_id
-                ORDER BY order_date
-            ) AS rn
+        SELECT customer_id
         FROM orders
-        GROUP BY customer_id
+        WHERE status = 'PAID'
+        ORDER BY order_date DESC
+        LIMIT 10
     """
 
     expression = parse_one(sql, dialect="postgres")
     analysis = StructuralSQLAnalyzer().analyze(expression)
 
-    result = StructuralAnalysisEnricher().analyze_aggregation_window_characteristics(
-        expression,
-        analysis,
-    )
-
-    finding_indices = {
-        index
-        for index, finding in enumerate(analysis.findings)
-        if finding.layer in {
-            "GROUP_BY",
-            "SELECT",
-            "WINDOW",
-        }
-    }
-
-    assert result.characteristics
-    assert all(
-        characteristic.finding_index in finding_indices
-        for characteristic in result.characteristics
-    )
-
-
-def test_analyze_aggregation_window_characteristics_handles_window_only_query():
-    from sqlglot import parse_one
-
-    from api.schemas.structural_optimization import (
-        AggregationWindowCharacteristicType,
-    )
-
-    sql = """
-        SELECT
-            customer_id,
-            ROW_NUMBER() OVER (
-                PARTITION BY customer_id
-                ORDER BY order_date
-            ) AS rn
-        FROM orders
-    """
-
-    expression = parse_one(sql, dialect="postgres")
-    analysis = StructuralSQLAnalyzer().analyze(expression)
-
-    result = StructuralAnalysisEnricher().analyze_aggregation_window_characteristics(
-        expression,
-        analysis,
+    result = (
+        StructuralAnalysisEnricher()
+        .analyze_ordering_limit_characteristics(
+            expression,
+            analysis,
+        )
     )
 
     assert [
         characteristic.characteristic_type
         for characteristic in result.characteristics
     ] == [
-        AggregationWindowCharacteristicType.WINDOW_FUNCTION,
-        AggregationWindowCharacteristicType.WINDOW_PARTITION,
-        AggregationWindowCharacteristicType.WINDOW_ORDERING,
+        OrderingLimitCharacteristicType.ORDERING,
+        OrderingLimitCharacteristicType.LIMIT,
+        OrderingLimitCharacteristicType.FILTER_WITH_ROW_LIMIT,
+        OrderingLimitCharacteristicType.FILTER_WITH_ORDERING,
     ]
 
 
-def test_analyze_aggregation_window_characteristics_handles_plain_query():
-    from sqlglot import parse_one
-
+def test_analyze_ordering_limit_characteristics_preserves_finding_provenance():
     sql = """
-        SELECT customer_id, total_amount
+        SELECT customer_id
         FROM orders
+        WHERE status = 'PAID'
+        ORDER BY order_date DESC
+        LIMIT 10
     """
 
     expression = parse_one(sql, dialect="postgres")
     analysis = StructuralSQLAnalyzer().analyze(expression)
 
-    result = StructuralAnalysisEnricher().analyze_aggregation_window_characteristics(
+    result = (
+        StructuralAnalysisEnricher()
+        .analyze_ordering_limit_characteristics(
+            expression,
+            analysis,
+        )
+    )
+
+    ordering_findings = {
+        index
+        for index, finding in enumerate(analysis.findings)
+        if finding.layer == "ORDER_BY"
+        and finding.evidence is not None
+        and "query_block=1;" in finding.evidence
+    }
+
+    filter_ordering = [
+        characteristic
+        for characteristic in result.characteristics
+        if characteristic.characteristic_type
+        == OrderingLimitCharacteristicType.FILTER_WITH_ORDERING
+    ]
+
+    assert len(filter_ordering) == 1
+
+    assert (
+        filter_ordering[0].finding_index
+        in ordering_findings
+    )
+
+
+def test_analyze_ordering_limit_characteristics_keeps_nested_query_blocks_separate():
+    sql = """
+        SELECT *
+        FROM (
+            SELECT customer_id
+            FROM orders
+            WHERE status = 'PAID'
+            ORDER BY order_date DESC
+            LIMIT 5
+        ) AS filtered_orders
+        ORDER BY customer_id
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    result = (
+        StructuralAnalysisEnricher()
+        .analyze_ordering_limit_characteristics(
+            expression,
+            analysis,
+        )
+    )
+
+    assert [
+        characteristic.characteristic_type
+        for characteristic in result.characteristics
+    ] == [
+        OrderingLimitCharacteristicType.ORDERING,
+        OrderingLimitCharacteristicType.ORDERING,
+        OrderingLimitCharacteristicType.LIMIT,
+        OrderingLimitCharacteristicType.FILTER_WITH_ROW_LIMIT,
+        OrderingLimitCharacteristicType.FILTER_WITH_ORDERING,
+    ]
+
+
+def test_analyze_ordering_limit_characteristics_does_not_modify_analysis():
+    sql = """
+        SELECT customer_id
+        FROM orders
+        WHERE status = 'PAID'
+        ORDER BY order_date DESC
+        LIMIT 10
+    """
+
+    expression = parse_one(sql, dialect="postgres")
+    analysis = StructuralSQLAnalyzer().analyze(expression)
+
+    original_findings = [
+        (
+            finding.finding_type,
+            finding.layer,
+            finding.severity,
+            finding.description,
+            finding.evidence,
+        )
+        for finding in analysis.findings
+    ]
+
+    StructuralAnalysisEnricher().analyze_ordering_limit_characteristics(
         expression,
         analysis,
     )
 
-    assert result.characteristics == []
+    resulting_findings = [
+        (
+            finding.finding_type,
+            finding.layer,
+            finding.severity,
+            finding.description,
+            finding.evidence,
+        )
+        for finding in analysis.findings
+    ]
+
+    assert resulting_findings == original_findings

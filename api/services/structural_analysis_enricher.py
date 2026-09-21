@@ -5,6 +5,7 @@ from sqlglot import exp
 from api.schemas.structural_optimization import (
     AggregationWindowCharacteristicResult,
     OptimizationCandidate,
+    OrderingLimitCharacteristicResult,
     StructuralAnalysis,
     StructuralClassificationResult,
     StructuralOpportunityResult,
@@ -21,6 +22,9 @@ from api.services.structural_finding_classifier import (
 from api.services.structural_opportunity_analyzer import (
     StructuralOpportunityAnalyzer,
 )
+from api.services.structural_ordering_limit_analyzer import (
+    StructuralOrderingLimitAnalyzer,
+)
 from api.services.structural_window_analyzer import (
     StructuralWindowAnalyzer,
 )
@@ -31,8 +35,9 @@ class StructuralAnalysisEnricher:
 
     This service deliberately keeps StructuralAnalysis unchanged. It acts as
     an integration layer between structural analysis, finding classification,
-    structural opportunity analysis, and candidate generation without
-    performing SQL execution, benchmarking, or decision-making.
+    structural opportunity analysis, candidate generation, aggregation and
+    window analysis, and ordering/row-limiting analysis without performing
+    SQL execution, benchmarking, or decision-making.
     """
 
     def __init__(
@@ -42,6 +47,7 @@ class StructuralAnalysisEnricher:
         candidate_generator: StructuralCandidateGenerator | None = None,
         aggregation_analyzer: StructuralAggregationAnalyzer | None = None,
         window_analyzer: StructuralWindowAnalyzer | None = None,
+        ordering_limit_analyzer: StructuralOrderingLimitAnalyzer | None = None,
     ) -> None:
         self._classifier = classifier or StructuralFindingClassifier()
         self._opportunity_analyzer = (
@@ -55,6 +61,9 @@ class StructuralAnalysisEnricher:
         )
         self._window_analyzer = (
             window_analyzer or StructuralWindowAnalyzer()
+        )
+        self._ordering_limit_analyzer = (
+            ordering_limit_analyzer or StructuralOrderingLimitAnalyzer()
         )
 
     def classify(
@@ -112,6 +121,21 @@ class StructuralAnalysisEnricher:
                 *aggregation_result.characteristics,
                 *window_result.characteristics,
             ]
+        )
+
+    def analyze_ordering_limit_characteristics(
+        self,
+        expression: exp.Expression,
+        analysis: StructuralAnalysis,
+    ) -> OrderingLimitCharacteristicResult:
+        """Return ordering and row-limiting characteristics for a SQL AST.
+
+        The established ordering/row-limiting analyzer is executed without
+        modifying the original StructuralAnalysis instance.
+        """
+        return self._ordering_limit_analyzer.analyze(
+            expression,
+            analysis,
         )
 
     def generate_candidates(
