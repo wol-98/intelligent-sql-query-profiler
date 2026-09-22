@@ -215,6 +215,11 @@ class SubqueryAlternativeType(str, Enum):
     DERIVED_TABLE = "DERIVED_TABLE"
 
 
+class CTEAlternativeType(str, Enum):
+    CTE = "CTE"
+    RECURSIVE_CTE = "RECURSIVE_CTE"
+
+
 class SemanticSafetyStatus(str, Enum):
     NOT_ASSESSED = "NOT_ASSESSED"
     REQUIRES_VALIDATION = "REQUIRES_VALIDATION"
@@ -232,6 +237,25 @@ class StructuralAlternativeCandidate(BaseModel):
     source_layer: StructuralLayer | None = None
     original_sql: str
     alternative_sql: str | None = None
+
+
+class StructuralCTEAlternativeCandidate(BaseModel):
+    candidate_id: str
+    alternative_type: CTEAlternativeType
+    status: CandidateStatus = CandidateStatus.CANDIDATE
+    semantic_safety: SemanticSafetyStatus = SemanticSafetyStatus.NOT_ASSESSED
+    evidence_status: EvidenceStatus
+    title: str
+    rationale: str
+    source_layer: StructuralLayer | None = None
+    original_sql: str
+    alternative_sql: str | None = None
+
+
+class StructuralCTEAlternativeResult(BaseModel):
+    candidates: list[StructuralCTEAlternativeCandidate] = Field(
+        default_factory=list
+    )
 
 
 class StructuralAlternativeResult(BaseModel):
