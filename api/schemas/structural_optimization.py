@@ -392,6 +392,44 @@ class StructuralDatabaseRoutineRecommendationResult(BaseModel):
     ] = Field(default_factory=list)
 
 
+class ProceduralWorkloadOpportunityType(str, Enum):
+    REUSABLE_COMPUTATION = "REUSABLE_COMPUTATION"
+    PARAMETERIZED_OPERATION = "PARAMETERIZED_OPERATION"
+    MULTI_STEP_DATA_OPERATION = "MULTI_STEP_DATA_OPERATION"
+    DATA_MUTATION_WORKFLOW = "DATA_MUTATION_WORKFLOW"
+    COMPLEX_PROCEDURAL_LOGIC = "COMPLEX_PROCEDURAL_LOGIC"
+    SIDE_EFFECTING_WORKFLOW = "SIDE_EFFECTING_WORKFLOW"
+
+
+class ProceduralWorkloadOpportunityStatus(str, Enum):
+    IDENTIFIED = "IDENTIFIED"
+    NOT_ASSESSED = "NOT_ASSESSED"
+    STRUCTURALLY_NEUTRAL = "STRUCTURALLY_NEUTRAL"
+
+
+class StructuralProceduralWorkloadOpportunity(BaseModel):
+    """
+    Structural opportunity for later database function or
+    stored-procedure analysis.
+
+    This contract records an architectural workload opportunity only.
+    It does not determine whether a function or procedure should be
+    created, executed, or accepted for production use.
+    """
+
+    finding_index: int = Field(ge=0)
+    opportunity_type: ProceduralWorkloadOpportunityType
+    status: ProceduralWorkloadOpportunityStatus
+    evidence_status: EvidenceStatus
+    evidence_scope: OpportunityEvidenceScope
+    rationale: str
+
+
+class StructuralProceduralWorkloadOpportunityResult(BaseModel):
+    opportunities: list[
+        StructuralProceduralWorkloadOpportunity
+    ] = Field(default_factory=list)
+
 class ArchitecturalOpportunityType(str, Enum):
     REUSABLE_CTE = "REUSABLE_CTE"
     AGGREGATED_RESULT = "AGGREGATED_RESULT"
