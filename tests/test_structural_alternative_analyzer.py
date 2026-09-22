@@ -6,14 +6,21 @@ import pytest
 
 from api.schemas.structural_optimization import (
     CandidateStatus,
+    CTEAlternativeType,
+    EvidenceStatus,
     SemanticSafetyStatus,
+    StructuralAlternativeCandidate,
+    StructuralCTEAlternativeCandidate,
+    StructuralCTEAlternativeResult,
+    StructuralLayer,
     SubqueryAlternativeType,
 )
+
 from api.services.structural_alternative_analyzer import (
     StructuralAlternativeAnalysis,
     StructuralAlternativeAnalyzer,
+    StructuralAlternativeFrameworkAnalysis,
 )
-
 
 @pytest.fixture
 def analyzer() -> StructuralAlternativeAnalyzer:
@@ -258,3 +265,212 @@ def test_integrated_result_does_not_claim_validation(
     assert candidate.status == CandidateStatus.CANDIDATE
     assert candidate.semantic_safety == SemanticSafetyStatus.NOT_ASSESSED
     assert candidate.alternative_sql is None
+
+def make_cte_candidate(
+    candidate_id: str,
+    alternative_type: CTEAlternativeType,
+) -> StructuralCTEAlternativeCandidate:
+    return StructuralCTEAlternativeCandidate(
+        candidate_id=candidate_id,
+        alternative_type=alternative_type,
+        status=CandidateStatus.CANDIDATE,
+        semantic_safety=SemanticSafetyStatus.NOT_ASSESSED,
+        evidence_status=EvidenceStatus.COMPLETE,
+        title="Test CTE alternative",
+        rationale="Eligible for later structural and semantic validation.",
+        source_layer=StructuralLayer.CTE,
+        original_sql=(
+            "WITH data AS (SELECT * FROM orders) "
+            "SELECT * FROM data"
+        ),
+        alternative_sql=None,
+    )
+
+
+def test_framework_preserves_existing_subquery_analysis() -> None:
+    analyzer = StructuralAlternativeAnalyzer()
+
+    sql = """
+        SELECT customer_id
+        FROM customers
+        WHERE EXISTS (
+            SELECT 1
+            FROM orders
+            WHERE orders.customer_id = customers.customer_id
+        )
+    """
+
+    framework = analyzer.analyze_framework(sql)
+
+    assert isinstance(
+        framework,
+        StructuralAlternativeFrameworkAnalysis,
+    )
+
+    assert len(framework.subquery_analyses) == 1
+    assert framework.cte_analyses == ()
+
+    analysis = framework.subquery_analyses[0]
+
+    assert isinstance(
+        analysis,
+        StructuralAlternativeAnalysis,
+    )
+
+    assert analysis.candidate.alternative_type.value == "EXISTS"
+
+
+def test_framework_integrates_ordinary_cte_alternative() -> None:
+    analyzer = StructuralAlternativeAnalyzer()
+
+    cte_candidate = make_cte_candidate(
+        "CTE-CAND-0001",
+        CTEAlternativeType.CTE,
+    )
+
+    cte_result = StructuralCTEAlternativeResult(
+        candidates=[cte_candidate]
+    )
+
+    framework = analyzer.analyze_framework(
+        "SELECT 1",
+        cte_result,
+    )
+
+    assert framework.subquery_analyses == ()
+    assert len(framework.cte_analyses) == 1
+
+    analysis = framework.cte_analyses[0]
+
+    assert analysis.candidate == cte_candidate
+    assert (
+        analysis.rule.source_type
+        == CTEAlternativeType.CTE
+    )
+
+
+def test_framework_integrates_recursive_cte_alternative() -> None:
+    analyzer = StructuralAlternativeAnalyzer()
+
+    cte_candidate = make_cte_candidate(
+        "CTE-CAND-0001",
+        CTEAlternativeType.RECURSIVE_CTE,
+    )
+
+    cte_result = StructuralCTEAlternativeResult(
+        candidates=[cte_candidate]
+    )
+
+    framework = analyzer.analyze_framework(
+        "SELECT 1",
+        cte_result,
+    )
+
+    assert len(framework.cte_analyses) == 1
+
+    analysis = framework.cte_analyses[0]
+
+    assert (
+        analysis.rule.source_type
+        == CTEAlternativeType.RECURSIVE_CTE
+    )
+    assert (
+        analysis.rule.alternative_family
+        == "RECURSIVE_CTE_TO_STRUCTURAL_ALTERNATIVE"
+    )
+
+
+def test_framework_preserves_both_alternative_families() -> None:
+    analyzer = StructuralAlternativeAnalyzer()
+
+    sql = """
+        SELECT customer_id
+        FROM customers
+        WHERE EXISTS (
+            SELECT 1
+            FROM orders
+            WHERE orders.customer_id = customers.customer_id
+        )
+    """
+
+    cte_candidate = make_cte_candidate(
+        "CTE-CAND-0001",
+        CTEAlternativeType.CTE,
+    )
+
+    cte_result = StructuralCTEAlternativeResult(
+        candidates=[cte_candidate]
+    )
+
+    framework = analyzer.analyze_framework(
+        sql,
+        cte_result,
+    )
+
+    assert len(framework.subquery_analyses) == 1
+    assert len(framework.cte_analyses) == 1
+
+    assert (
+        framework.subquery_analyses[0]
+        .candidate.alternative_type.value
+        == "EXISTS"
+    )
+
+    assert (
+        framework.cte_analyses[0]
+        .candidate.alternative_type
+        == CTEAlternativeType.CTE
+    )
+
+
+def test_framework_does_not_change_cte_candidate_state() -> None:
+    analyzer = StructuralAlternativeAnalyzer()
+
+    candidate = make_cte_candidate(
+        "CTE-CAND-0001",
+        CTEAlternativeType.CTE,
+    )
+
+    result = StructuralCTEAlternativeResult(
+        candidates=[candidate]
+    )
+
+    framework = analyzer.analyze_framework(
+        "SELECT 1",
+        result,
+    )
+
+    analyzed_candidate = framework.cte_analyses[0].candidate
+
+    assert analyzed_candidate.status == CandidateStatus.CANDIDATE
+    assert (
+        analyzed_candidate.semantic_safety
+        == SemanticSafetyStatus.NOT_ASSESSED
+    )
+    assert analyzed_candidate.alternative_sql is None
+    assert analyzed_candidate.original_sql == candidate.original_sql
+
+
+def test_framework_is_deterministic_for_same_inputs() -> None:
+    analyzer = StructuralAlternativeAnalyzer()
+
+    candidate = make_cte_candidate(
+        "CTE-CAND-0001",
+        CTEAlternativeType.CTE,
+    )
+
+    result = StructuralCTEAlternativeResult(
+        candidates=[candidate]
+    )
+
+    first = analyzer.analyze_framework(
+        "SELECT 1",
+        result,
+    )
+
+    second = analyzer.analyze_framework(
+        "SELECT 1",
+        result,
+    )
+
+    assert first == second
