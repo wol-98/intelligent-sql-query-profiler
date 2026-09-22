@@ -1,3 +1,6 @@
+import sqlglot
+from sqlglot import exp
+
 import pytest
 
 from api.schemas.structural_optimization import (
@@ -125,3 +128,122 @@ def test_rules_do_not_generate_sql(
 
         assert not hasattr(rule, "alternative_sql")
         assert not hasattr(rule, "optimized_sql")
+def test_rule_can_be_resolved_from_actual_cte_ast_node(
+    engine: StructuralCTEAlternativeRuleEngine,
+) -> None:
+    import sqlglot
+
+    sql = """
+        WITH recent_orders AS (
+            SELECT *
+            FROM orders
+        )
+        SELECT *
+        FROM recent_orders
+    """
+
+    tree = sqlglot.parse_one(sql, dialect="postgres")
+
+    matching_rules = []
+
+    for node in tree.walk():
+        rule = engine.get_rule_for_node(node)
+
+        if rule is not None:
+            matching_rules.append(rule)
+
+    assert len(matching_rules) == 1
+    assert (
+        matching_rules[0].source_type
+        == CTEAlternativeType.CTE
+    )
+    assert (
+        matching_rules[0].source_layer
+        == StructuralLayer.CTE
+    )
+
+
+def test_recursive_cte_rule_can_be_resolved_from_actual_ast_node(
+    engine: StructuralCTEAlternativeRuleEngine,
+) -> None:
+    import sqlglot
+
+    sql = """
+        WITH RECURSIVE tree AS (
+            SELECT id
+            FROM nodes
+            WHERE parent_id IS NULL
+
+            UNION ALL
+
+            SELECT n.id
+            FROM nodes n
+            JOIN tree t
+                ON n.parent_id = t.id
+        )
+        SELECT *
+        FROM tree
+    """
+
+    tree = sqlglot.parse_one(sql, dialect="postgres")
+
+    matching_rules = []
+
+    for node in tree.walk():
+        rule = engine.get_rule_for_node(node)
+
+        if rule is not None:
+            matching_rules.append(rule)
+
+    assert len(matching_rules) == 1
+    assert (
+        matching_rules[0].source_type
+        == CTEAlternativeType.RECURSIVE_CTE
+    )
+    assert (
+        matching_rules[0].source_layer
+        == StructuralLayer.CTE
+    )
+
+
+def test_cte_reference_table_is_not_classified_as_cte_candidate(
+    engine: StructuralCTEAlternativeRuleEngine,
+) -> None:
+    import sqlglot
+
+    sql = """
+        WITH recent_orders AS (
+            SELECT *
+            FROM orders
+        )
+        SELECT *
+        FROM recent_orders
+    """
+
+    tree = sqlglot.parse_one(sql, dialect="postgres")
+
+    table_rules = []
+
+    for node in tree.find_all(exp.Table):
+        rule = engine.get_rule_for_node(node)
+
+        if rule is not None:
+            table_rules.append(rule)
+
+    assert table_rules == []
+
+
+def test_non_cte_ast_node_returns_no_rule(
+    engine: StructuralCTEAlternativeRuleEngine,
+) -> None:
+    import sqlglot
+
+    tree = sqlglot.parse_one(
+        "SELECT * FROM orders",
+        dialect="postgres",
+    )
+
+    for node in tree.walk():
+        if isinstance(node, exp.Select):
+            assert engine.get_rule_for_node(node) is None
+            break

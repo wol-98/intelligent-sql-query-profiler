@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from sqlglot import exp
+
 from api.schemas.structural_optimization import (
     CTEAlternativeType,
     StructuralLayer,
@@ -68,3 +70,37 @@ class StructuralCTEAlternativeRuleEngine:
                 "Unsupported CTE structural alternative type: "
                 f"{alternative_type}"
             ) from exc
+
+    def get_rule_for_node(
+        self,
+        node: exp.Expression,
+    ) -> StructuralCTEAlternativeRule | None:
+        """Return the rule for a supported CTE SQLGlot AST node.
+
+        This method performs structural recognition only. It does not
+        determine whether any CTE transformation is semantically safe.
+        """
+
+        alternative_type = self._classify_node(node)
+
+        if alternative_type is None:
+            return None
+
+        return self.get_rule(alternative_type)
+
+    @staticmethod
+    def _classify_node(
+        node: exp.Expression,
+    ) -> CTEAlternativeType | None:
+        """Classify supported CTE AST structures."""
+
+        if not isinstance(node, exp.CTE):
+            return None
+
+        with_expression = node.find_ancestor(exp.With)
+
+        if with_expression is not None:
+            if with_expression.args.get("recursive") is True:
+                return CTEAlternativeType.RECURSIVE_CTE
+
+        return CTEAlternativeType.CTE
