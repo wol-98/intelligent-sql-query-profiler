@@ -42,14 +42,74 @@ class ViewSemanticPreconditionRule:
     """
     Contract describing the semantic conditions that must be considered
     for a particular VIEW or MATERIALIZED VIEW recommendation type.
-
-    Concrete condition lists are defined in the subsequent rule-analysis
-    milestone.
     """
 
     recommendation_type: ViewRecommendationType
     required_conditions: tuple[str, ...]
     rationale: str
+
+
+VIEW_REQUIRED_CONDITIONS: tuple[str, ...] = (
+    "PROJECTED_COLUMNS",
+    "PROJECTED_ALIASES",
+    "QUERY_SCOPE",
+    "SOURCE_DEPENDENCIES",
+    "FILTER_PREDICATES",
+    "JOIN_SEMANTICS",
+    "GROUPING_AGGREGATION",
+    "HAVING_FILTER",
+    "WINDOW_EXPRESSIONS",
+    "DISTINCT_SEMANTICS",
+    "SET_OPERATION_SEMANTICS",
+    "NESTED_QUERY_SEMANTICS",
+    "ORDERING_BEHAVIOR",
+    "ROW_LIMITING",
+)
+
+
+MATERIALIZED_VIEW_REQUIRED_CONDITIONS: tuple[str, ...] = (
+    "PROJECTED_COLUMNS",
+    "PROJECTED_ALIASES",
+    "QUERY_SCOPE",
+    "SOURCE_DEPENDENCIES",
+    "FILTER_PREDICATES",
+    "JOIN_SEMANTICS",
+    "GROUPING_AGGREGATION",
+    "HAVING_FILTER",
+    "WINDOW_EXPRESSIONS",
+    "DISTINCT_SEMANTICS",
+    "SET_OPERATION_SEMANTICS",
+    "NESTED_QUERY_SEMANTICS",
+    "ORDERING_BEHAVIOR",
+    "ROW_LIMITING",
+    "MATERIALIZATION_BEHAVIOR",
+    "REFRESH_BEHAVIOR",
+    "DATA_FRESHNESS_REQUIREMENTS",
+)
+
+
+DEFAULT_VIEW_SEMANTIC_PRECONDITION_RULES: tuple[
+    ViewSemanticPreconditionRule, ...
+] = (
+    ViewSemanticPreconditionRule(
+        recommendation_type=ViewRecommendationType.VIEW,
+        required_conditions=VIEW_REQUIRED_CONDITIONS,
+        rationale=(
+            "VIEW candidates require validation that the exposed query "
+            "semantics, dependencies, projected structure, relational "
+            "operations, and row-shaping behavior are preserved."
+        ),
+    ),
+    ViewSemanticPreconditionRule(
+        recommendation_type=ViewRecommendationType.MATERIALIZED_VIEW,
+        required_conditions=MATERIALIZED_VIEW_REQUIRED_CONDITIONS,
+        rationale=(
+            "MATERIALIZED VIEW candidates require validation of the same "
+            "query semantics as a VIEW, together with materialization, "
+            "refresh, and data-freshness behavior."
+        ),
+    ),
+)
 
 
 class StructuralViewSemanticPreconditionRuleEngine:
@@ -58,7 +118,6 @@ class StructuralViewSemanticPreconditionRuleEngine:
     recommendation types.
 
     The engine is intentionally contract-oriented at this milestone.
-    Concrete rules can be supplied explicitly and resolved deterministically.
     """
 
     def __init__(
@@ -82,6 +141,22 @@ class StructuralViewSemanticPreconditionRuleEngine:
             rule.recommendation_type: rule
             for rule in supplied_rules
         }
+
+    @classmethod
+    def with_default_rules(
+        cls,
+    ) -> "StructuralViewSemanticPreconditionRuleEngine":
+        """
+        Construct an engine using the deterministic project rules.
+
+        These rules identify conditions that require later semantic
+        validation. They do not establish semantic equivalence,
+        safety, or performance.
+        """
+
+        return cls(
+            rules=DEFAULT_VIEW_SEMANTIC_PRECONDITION_RULES
+        )
 
     def get_rule(
         self,

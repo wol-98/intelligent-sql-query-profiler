@@ -9,6 +9,11 @@ from api.services.structural_view_semantic_preconditions import (
     ViewSemanticPreconditionRule,
 )
 
+from api.services.structural_view_semantic_preconditions import (
+    DEFAULT_VIEW_SEMANTIC_PRECONDITION_RULES,
+    MATERIALIZED_VIEW_REQUIRED_CONDITIONS,
+    VIEW_REQUIRED_CONDITIONS,
+)
 
 def test_view_semantic_precondition_finding_contract():
     finding = ViewSemanticPreconditionFinding(
@@ -155,3 +160,81 @@ def test_rule_engine_rejects_duplicate_rules():
             "Expected duplicate semantic-precondition rules "
             "to raise ValueError."
         )
+
+def test_default_view_rule_contains_deterministic_conditions():
+    engine = StructuralViewSemanticPreconditionRuleEngine.with_default_rules()
+
+    rule = engine.get_rule(ViewRecommendationType.VIEW)
+
+    assert rule is not None
+    assert rule.required_conditions == VIEW_REQUIRED_CONDITIONS
+
+
+def test_default_materialized_view_rule_contains_deterministic_conditions():
+    engine = StructuralViewSemanticPreconditionRuleEngine.with_default_rules()
+
+    rule = engine.get_rule(
+        ViewRecommendationType.MATERIALIZED_VIEW
+    )
+
+    assert rule is not None
+    assert (
+        rule.required_conditions
+        == MATERIALIZED_VIEW_REQUIRED_CONDITIONS
+    )
+
+
+def test_materialized_view_has_additional_materialization_conditions():
+    assert (
+        "MATERIALIZATION_BEHAVIOR"
+        in MATERIALIZED_VIEW_REQUIRED_CONDITIONS
+    )
+    assert "REFRESH_BEHAVIOR" in MATERIALIZED_VIEW_REQUIRED_CONDITIONS
+    assert (
+        "DATA_FRESHNESS_REQUIREMENTS"
+        in MATERIALIZED_VIEW_REQUIRED_CONDITIONS
+    )
+
+
+def test_view_rule_does_not_require_materialized_view_conditions():
+    assert (
+        "MATERIALIZATION_BEHAVIOR"
+        not in VIEW_REQUIRED_CONDITIONS
+    )
+    assert "REFRESH_BEHAVIOR" not in VIEW_REQUIRED_CONDITIONS
+    assert (
+        "DATA_FRESHNESS_REQUIREMENTS"
+        not in VIEW_REQUIRED_CONDITIONS
+    )
+
+
+def test_default_rules_are_registered_for_both_recommendation_types():
+    assert len(DEFAULT_VIEW_SEMANTIC_PRECONDITION_RULES) == 2
+
+    recommendation_types = {
+        rule.recommendation_type
+        for rule in DEFAULT_VIEW_SEMANTIC_PRECONDITION_RULES
+    }
+
+    assert recommendation_types == {
+        ViewRecommendationType.VIEW,
+        ViewRecommendationType.MATERIALIZED_VIEW,
+    }
+
+
+def test_default_rules_are_deterministic():
+    first = StructuralViewSemanticPreconditionRuleEngine.with_default_rules()
+    second = StructuralViewSemanticPreconditionRuleEngine.with_default_rules()
+
+    first_view = first.get_rule(ViewRecommendationType.VIEW)
+    second_view = second.get_rule(ViewRecommendationType.VIEW)
+
+    first_mv = first.get_rule(
+        ViewRecommendationType.MATERIALIZED_VIEW
+    )
+    second_mv = second.get_rule(
+        ViewRecommendationType.MATERIALIZED_VIEW
+    )
+
+    assert first_view == second_view
+    assert first_mv == second_mv
