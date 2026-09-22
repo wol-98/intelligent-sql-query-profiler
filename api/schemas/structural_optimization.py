@@ -358,3 +358,31 @@ class StructuralViewRecommendationResult(BaseModel):
     recommendations: list[StructuralViewRecommendation] = Field(
         default_factory=list
     )
+
+class ArchitecturalOpportunityType(str, Enum):
+    REUSABLE_CTE = "REUSABLE_CTE"
+    AGGREGATED_RESULT = "AGGREGATED_RESULT"
+    FILTERED_RELATIONAL_RESULT = "FILTERED_RELATIONAL_RESULT"
+    ANALYTICAL_RESULT = "ANALYTICAL_RESULT"
+    RECURSIVE_CTE = "RECURSIVE_CTE"
+
+
+class ArchitecturalOpportunityStatus(str, Enum):
+    IDENTIFIED = "IDENTIFIED"
+    NOT_ASSESSED = "NOT_ASSESSED"
+    STRUCTURALLY_NEUTRAL = "STRUCTURALLY_NEUTRAL"
+
+
+class StructuralArchitecturalOpportunity(BaseModel):
+    finding_index: int = Field(ge=0)
+    opportunity_type: ArchitecturalOpportunityType
+    status: ArchitecturalOpportunityStatus
+    evidence_status: EvidenceStatus
+    evidence_scope: OpportunityEvidenceScope
+    rationale: str
+
+
+class StructuralArchitecturalOpportunityResult(BaseModel):
+    opportunities: list[StructuralArchitecturalOpportunity] = Field(
+        default_factory=list
+    )
