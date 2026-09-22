@@ -337,3 +337,24 @@ class CTECharacteristicResult(BaseModel):
     characteristics: list[CTECharacteristic] = Field(
         default_factory=list
     )
+
+class ViewRecommendationType(str, Enum):
+    VIEW = "VIEW"
+    MATERIALIZED_VIEW = "MATERIALIZED_VIEW"
+
+
+class StructuralViewRecommendation(BaseModel):
+    recommendation_id: str
+    recommendation_type: ViewRecommendationType
+    status: CandidateStatus = CandidateStatus.CANDIDATE
+    semantic_safety: SemanticSafetyStatus = SemanticSafetyStatus.NOT_ASSESSED
+    evidence_status: EvidenceStatus
+    title: str
+    rationale: str
+    source_layer: StructuralLayer | None = None
+    original_sql: str
+
+class StructuralViewRecommendationResult(BaseModel):
+    recommendations: list[StructuralViewRecommendation] = Field(
+        default_factory=list
+    )
