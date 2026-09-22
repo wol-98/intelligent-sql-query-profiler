@@ -10,6 +10,10 @@ from api.services.structural_cte_alternative_rules import (
     StructuralCTEAlternativeRule,
     StructuralCTEAlternativeRuleEngine,
 )
+from api.services.structural_cte_semantic_preconditions import (
+    CTESemanticPreconditionResult,
+    StructuralCTESemanticPreconditionAnalyzer,
+)
 
 
 @dataclass(frozen=True)
@@ -21,11 +25,18 @@ class StructuralCTEAlternativeAnalysis:
 
 
 class StructuralCTEAlternativeAnalyzer:
-    """Integrate generated CTE candidates with their alternative rules."""
+    """Integrate generated CTE candidates with alternative rules.
+
+    Semantic-precondition analysis is exposed separately so the established
+    M21.10.6 rule-resolution behavior remains unchanged.
+    """
 
     def __init__(
         self,
         rule_engine: StructuralCTEAlternativeRuleEngine | None = None,
+        semantic_precondition_analyzer: (
+            StructuralCTESemanticPreconditionAnalyzer | None
+        ) = None,
     ) -> None:
         self._rule_engine = (
             rule_engine
@@ -33,13 +44,25 @@ class StructuralCTEAlternativeAnalyzer:
             else StructuralCTEAlternativeRuleEngine()
         )
 
+        self._semantic_precondition_analyzer = (
+            semantic_precondition_analyzer
+            if semantic_precondition_analyzer is not None
+            else StructuralCTESemanticPreconditionAnalyzer()
+        )
+
     def analyze(
         self,
         candidate: StructuralCTEAlternativeCandidate,
     ) -> StructuralCTEAlternativeAnalysis:
-        """Resolve the deterministic rule for one CTE candidate."""
+        """Resolve the deterministic rule for one CTE candidate.
 
-        rule = self._rule_engine.get_rule(candidate.alternative_type)
+        This preserves the established M21.10.6 behavior. It does not
+        perform semantic-precondition analysis or modify the candidate.
+        """
+
+        rule = self._rule_engine.get_rule(
+            candidate.alternative_type
+        )
 
         return StructuralCTEAlternativeAnalysis(
             candidate=candidate,
@@ -56,6 +79,21 @@ class StructuralCTEAlternativeAnalyzer:
             self.analyze(candidate)
             for candidate in result.candidates
         ]
+
+    def analyze_semantic_preconditions(
+        self,
+        candidate: StructuralCTEAlternativeCandidate,
+    ) -> CTESemanticPreconditionResult:
+        """Analyze semantic preconditions for one CTE candidate.
+
+        This is a separate M21.10.7 pathway. It does not modify the
+        candidate and does not establish semantic equivalence or safety.
+        """
+
+        return self._semantic_precondition_analyzer.analyze(
+            candidate.original_sql,
+            candidate.alternative_type,
+        )
 
     @staticmethod
     def preserve_candidate(
