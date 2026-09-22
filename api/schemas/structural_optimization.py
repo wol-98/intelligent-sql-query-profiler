@@ -359,6 +359,39 @@ class StructuralViewRecommendationResult(BaseModel):
         default_factory=list
     )
 
+class DatabaseRoutineRecommendationType(str, Enum):
+    FUNCTION = "FUNCTION"
+    PROCEDURE = "PROCEDURE"
+
+
+class StructuralDatabaseRoutineRecommendation(BaseModel):
+    """
+    Candidate recommendation for a database function or stored procedure.
+
+    This contract represents a structural architectural candidate only.
+    It does not imply that a function or procedure should be created,
+    executed, or accepted for production use.
+    """
+
+    recommendation_id: str
+    recommendation_type: DatabaseRoutineRecommendationType
+    status: CandidateStatus = CandidateStatus.CANDIDATE
+    semantic_safety: SemanticSafetyStatus = (
+        SemanticSafetyStatus.NOT_ASSESSED
+    )
+    evidence_status: EvidenceStatus
+    title: str
+    rationale: str
+    source_layer: StructuralLayer | None = None
+    original_sql: str
+
+
+class StructuralDatabaseRoutineRecommendationResult(BaseModel):
+    recommendations: list[
+        StructuralDatabaseRoutineRecommendation
+    ] = Field(default_factory=list)
+
+
 class ArchitecturalOpportunityType(str, Enum):
     REUSABLE_CTE = "REUSABLE_CTE"
     AGGREGATED_RESULT = "AGGREGATED_RESULT"
