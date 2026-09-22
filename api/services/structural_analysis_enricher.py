@@ -11,11 +11,15 @@ from api.schemas.structural_optimization import (
     StructuralAnalysis,
     StructuralClassificationResult,
     StructuralOpportunityResult,
+    StructuralViewRecommendationResult,
     SubqueryAlternativeCharacteristicResult,
 )
 
 from api.services.structural_aggregation_analyzer import (
     StructuralAggregationAnalyzer,
+)
+from api.services.structural_architectural_opportunity_analyzer import (
+    StructuralArchitecturalOpportunityAnalyzer,
 )
 from api.services.structural_candidate_generator import (
     StructuralCandidateGenerator,
@@ -44,6 +48,13 @@ from api.services.structural_subquery_candidate_generator import (
 from api.services.structural_subquery_opportunity_analyzer import (
     StructuralSubqueryOpportunityAnalyzer,
 )
+from api.services.structural_view_recommendation_generator import (
+    StructuralViewRecommendationGenerator,
+)
+from api.services.structural_view_recommendation_semantic_analyzer import (
+    StructuralViewRecommendationAnalysis,
+    StructuralViewRecommendationSemanticAnalyzer,
+)
 from api.services.structural_window_analyzer import (
     StructuralWindowAnalyzer,
 )
@@ -55,9 +66,10 @@ class StructuralAnalysisEnricher:
     This service deliberately keeps StructuralAnalysis unchanged. It acts as
     an integration layer between structural analysis, finding classification,
     structural opportunity analysis, candidate generation, aggregation and
-    window analysis, ordering/row-limiting analysis, subquery analysis, and
-    CTE analysis without performing SQL execution, benchmarking, or
-    decision-making.
+    window analysis, ordering/row-limiting analysis, subquery analysis,
+    architectural opportunity analysis, CTE analysis, view recommendation
+    generation, and semantic-precondition analysis without performing SQL
+    execution, benchmarking, or decision-making.
     """
 
     def __init__(
@@ -76,7 +88,18 @@ class StructuralAnalysisEnricher:
             StructuralSubqueryCandidateGenerator | None
         ) = None,
         cte_analyzer: StructuralCTEAnalyzer | None = None,
-        cte_opportunity_analyzer: StructuralCTEOpportunityAnalyzer | None = None,
+        cte_opportunity_analyzer: (
+            StructuralCTEOpportunityAnalyzer | None
+        ) = None,
+        architectural_opportunity_analyzer: (
+            StructuralArchitecturalOpportunityAnalyzer | None
+        ) = None,
+        view_recommendation_generator: (
+            StructuralViewRecommendationGenerator | None
+        ) = None,
+        view_recommendation_semantic_analyzer: (
+            StructuralViewRecommendationSemanticAnalyzer | None
+        ) = None,
     ) -> None:
         self._classifier = classifier or StructuralFindingClassifier()
 
@@ -121,6 +144,21 @@ class StructuralAnalysisEnricher:
         self._cte_opportunity_analyzer = (
             cte_opportunity_analyzer
             or StructuralCTEOpportunityAnalyzer()
+        )
+
+        self._architectural_opportunity_analyzer = (
+            architectural_opportunity_analyzer
+            or StructuralArchitecturalOpportunityAnalyzer()
+        )
+
+        self._view_recommendation_generator = (
+            view_recommendation_generator
+            or StructuralViewRecommendationGenerator()
+        )
+
+        self._view_recommendation_semantic_analyzer = (
+            view_recommendation_semantic_analyzer
+            or StructuralViewRecommendationSemanticAnalyzer()
         )
 
     def classify(
@@ -239,6 +277,84 @@ class StructuralAnalysisEnricher:
 
         return self._cte_opportunity_analyzer.analyze(
             characteristics,
+        )
+
+    def analyze_architectural_opportunities(
+        self,
+        expression: exp.Expression,
+        analysis: StructuralAnalysis,
+    ):
+        """Return deterministic architectural view-analysis opportunities.
+
+        CTE, aggregation, and window characteristics are derived from the
+        supplied SQL AST and StructuralAnalysis, then passed to the dedicated
+        architectural opportunity analyzer.
+
+        The original StructuralAnalysis instance is not modified.
+        """
+        cte_characteristics = self._cte_analyzer.analyze(
+            expression,
+            analysis,
+        )
+
+        aggregation_window_characteristics = (
+            self.analyze_aggregation_window_characteristics(
+                expression,
+                analysis,
+            )
+        )
+
+        return self._architectural_opportunity_analyzer.analyze(
+            analysis,
+            cte_characteristics=cte_characteristics,
+            aggregation_window_characteristics=(
+                aggregation_window_characteristics
+            ),
+        )
+
+    def generate_view_recommendations(
+        self,
+        expression: exp.Expression,
+        analysis: StructuralAnalysis,
+        original_sql: str,
+    ) -> tuple[StructuralViewRecommendationAnalysis, ...]:
+        """Run the complete architectural view recommendation flow.
+
+        The flow derives architectural opportunities, generates VIEW or
+        MATERIALIZED VIEW candidates, and attaches deterministic semantic
+        precondition analysis.
+
+        The original StructuralAnalysis instance is not modified.
+
+        This integration layer does not:
+          - rewrite SQL,
+          - create VIEW or MATERIALIZED VIEW DDL,
+          - execute SQL,
+          - benchmark alternatives,
+          - establish semantic equivalence,
+          - establish safety, or
+          - make production decisions.
+        """
+        opportunities = self.analyze_architectural_opportunities(
+            expression,
+            analysis,
+        )
+
+        source_layers = {
+            index: finding.layer
+            for index, finding in enumerate(analysis.findings)
+        }
+
+        recommendations: StructuralViewRecommendationResult = (
+            self._view_recommendation_generator.generate(
+                opportunities,
+                original_sql=original_sql,
+                source_layers=source_layers,
+            )
+        )
+
+        return self._view_recommendation_semantic_analyzer.analyze_result(
+            recommendations,
         )
 
     def generate_subquery_candidates(
