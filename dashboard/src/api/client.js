@@ -50,6 +50,46 @@ export async function getProvenance() {
   return request('/api/provenance')
 }
 
+
+export async function postOptimizationBlueprint(payload) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v2/optimization/studio/blueprint`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  )
+
+  let data = null
+
+  try {
+    data = await response.json()
+  } catch {
+    // Keep the initial null value when the response has no JSON body.
+  }
+
+  if (!response.ok) {
+    const detail =
+      data?.detail?.message ||
+      data?.detail ||
+      `API request failed with status ${response.status}`
+
+    const error = new Error(
+      typeof detail === 'string' ? detail : JSON.stringify(detail),
+    )
+
+    error.status = response.status
+    error.detail = data?.detail ?? null
+
+    throw error
+  }
+
+  return data
+}
+
 export async function getProvenanceRecord(recommendationId) {
   return request(`/api/provenance/${recommendationId}`)
 }

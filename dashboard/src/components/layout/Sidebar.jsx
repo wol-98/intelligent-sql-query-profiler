@@ -3,6 +3,11 @@ const navigationSections = [
     label: 'Analysis',
     items: [
       {
+        id: 'optimization-studio',
+        label: 'SQL Optimization Studio',
+        enabled: true,
+      },
+      {
         id: 'overview',
         label: 'Overview',
         enabled: true,

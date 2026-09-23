@@ -19,7 +19,6 @@ from api.routes.recommendations import (
 
 
 app = FastAPI(
-app.include_router(dynamic_optimization_router)
     title=(
         "Intelligent SQL Query Profiler "
         "& Index Optimization Engine"
@@ -32,6 +31,9 @@ app.include_router(dynamic_optimization_router)
 )
 
 
+app.include_router(dynamic_optimization_router)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -39,7 +41,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
     ],
     allow_credentials=False,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 

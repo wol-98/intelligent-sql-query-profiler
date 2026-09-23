@@ -10,6 +10,7 @@ import EvidenceProvenancePage from './pages/EvidenceProvenancePage'
 
 import AppShell from './components/layout/AppShell'
 import OverviewPage from './pages/OverviewPage'
+import OptimizationStudioPage from './pages/OptimizationStudioPage'
 import RecommendationDetailPage from './pages/RecommendationDetailPage'
 import RecommendationsPage from './pages/RecommendationsPage'
 import WorkloadsPage from './pages/WorkloadsPage'
@@ -54,6 +55,10 @@ function App() {
   }
 
   // existing page routing continues...
+
+    if (activePage === 'optimization-studio') {
+      return <OptimizationStudioPage />
+    }
 
     if (activePage === 'workloads') {
       return (
