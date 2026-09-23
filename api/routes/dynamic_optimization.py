@@ -14,6 +14,8 @@ from api.services.structural_analysis_enricher import (
 )
 from api.services.structural_sql_analyzer import StructuralSQLAnalyzer
 from api.services.structural_sql_validator import validate_sql
+from api.services.schema_introspector import SchemaIntrospector
+from api.services.schema_validator import validate_tables
 from collector.query_parser import parse_query
 
 
@@ -57,19 +59,97 @@ async def get_optimization_blueprint(
             )
 
         # ---------------------------------------------------------
-        # 2. Parse query metadata using the existing collector
-        #    parser used by the index recommendation pipeline.
-        # ---------------------------------------------------------
-        parsed_metadata = parse_query(request.raw_sql)
-
-        # ---------------------------------------------------------
-        # 3. Build SQLGlot AST and structural analysis.
+        # 2. Build the SQLGlot AST for schema validation and
+        #    downstream structural analysis.
         # ---------------------------------------------------------
         expression = parse_one(
             request.raw_sql,
             dialect="postgres",
         )
 
+        # ---------------------------------------------------------
+        # 3. Validate schema/table/column compatibility.
+        #
+        #    M21.3 is deliberately read-only. The validator inspects
+        #    PostgreSQL metadata and never executes the submitted SQL.
+        # ---------------------------------------------------------
+        schema_introspector = SchemaIntrospector(
+            schema=request.target_schema,
+        )
+
+        if not schema_introspector.schema_exists():
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "status": "INVALID_SCHEMA",
+                    "schema": request.target_schema,
+                    "error_type": "SCHEMA_NOT_FOUND",
+                    "message": (
+                        f"Schema '{request.target_schema}' does not exist "
+                        "in the controlled PostgreSQL environment."
+                    ),
+                },
+            )
+
+        schema_validation = validate_tables(
+            expression,
+            introspector=schema_introspector,
+            default_schema=request.target_schema,
+        )
+
+        if not schema_validation.valid:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "status": "INVALID_SCHEMA",
+                    "schema": request.target_schema,
+                    "error_type": "SCHEMA_COMPATIBILITY_FAILED",
+                    "message": (
+                        "The submitted SQL references database objects "
+                        "that are not compatible with the controlled "
+                        "schema."
+                    ),
+                    "missing_tables": list(
+                        schema_validation.missing_tables
+                    ),
+                    "missing_columns": list(
+                        schema_validation.missing_columns
+                    ),
+                    "ambiguous_columns": list(
+                        schema_validation.ambiguous_columns
+                    ),
+                    "tables": [
+                        {
+                            "schema": result.reference.schema,
+                            "table": result.reference.table,
+                            "alias": result.reference.alias,
+                            "exists": result.exists,
+                        }
+                        for result in schema_validation.tables
+                    ],
+                    "columns": [
+                        {
+                            "name": result.reference.name,
+                            "table": result.reference.table,
+                            "schema": result.reference.schema,
+                            "resolved_table": result.resolved_table,
+                            "exists": result.exists,
+                            "ambiguous": result.ambiguous,
+                        }
+                        for result in schema_validation.columns
+                    ],
+                },
+            )
+
+        # ---------------------------------------------------------
+        # 4. Parse query metadata using the existing collector
+        #    parser used by the index recommendation pipeline.
+        # ---------------------------------------------------------
+        parsed_metadata = parse_query(request.raw_sql)
+
+        # ---------------------------------------------------------
+        # 5. Build structural analysis.
+        # ---------------------------------------------------------
         structural_analyzer = StructuralSQLAnalyzer()
 
         structural_analysis = structural_analyzer.analyze(
@@ -79,7 +159,7 @@ async def get_optimization_blueprint(
         )
 
         # ---------------------------------------------------------
-        # 4. Generate unified M21.13 candidates.
+        # 6. Generate unified M21.13 candidates.
         #
         # The current collector index generator accepts execution-plan
         # features but deliberately does not consume them. Therefore
@@ -100,7 +180,7 @@ async def get_optimization_blueprint(
         )
 
         # ---------------------------------------------------------
-        # 5. Benchmark only genuinely executable alternatives.
+        # 7. Benchmark only genuinely executable alternatives.
         #
         # At the current project stage, structural candidates normally
         # have no executable optimized_sql, so they remain explicitly
@@ -125,7 +205,7 @@ async def get_optimization_blueprint(
                 break
 
         # ---------------------------------------------------------
-        # 6. Compile the current five-section blueprint.
+        # 8. Compile the current five-section blueprint.
         # ---------------------------------------------------------
         blueprint_generator = DynamicBlueprintGenerator()
 

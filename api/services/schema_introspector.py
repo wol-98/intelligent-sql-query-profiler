@@ -45,6 +45,30 @@ class SchemaIntrospector:
     def __init__(self, schema: str = "public"):
         self.schema = schema
 
+    def schema_exists(self) -> bool:
+        """Return whether the configured PostgreSQL schema exists."""
+
+        connection = get_connection()
+
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.schemata
+                        WHERE schema_name = %s
+                    );
+                    """,
+                    (self.schema,),
+                )
+
+                result = cursor.fetchone()
+
+                return bool(result and result[0])
+        finally:
+            connection.close()
+
     def get_tables(self) -> tuple[TableMetadata, ...]:
         """
         Return all tables and their columns for the configured
