@@ -11,6 +11,7 @@ import EvidenceProvenancePage from './pages/EvidenceProvenancePage'
 import AppShell from './components/layout/AppShell'
 import OverviewPage from './pages/OverviewPage'
 import OptimizationStudioPage from './pages/OptimizationStudioPage'
+import InteractiveAnalyticsPage from './pages/InteractiveAnalyticsPage'
 import RecommendationDetailPage from './pages/RecommendationDetailPage'
 import RecommendationsPage from './pages/RecommendationsPage'
 import WorkloadsPage from './pages/WorkloadsPage'
@@ -58,6 +59,10 @@ function App() {
 
     if (activePage === 'optimization-studio') {
       return <OptimizationStudioPage />
+    }
+
+    if (activePage === 'interactive-analytics') {
+      return <InteractiveAnalyticsPage />
     }
 
     if (activePage === 'workloads') {

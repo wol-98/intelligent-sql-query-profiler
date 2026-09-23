@@ -8,6 +8,11 @@ const navigationSections = [
         enabled: true,
       },
       {
+        id: 'interactive-analytics',
+        label: 'Interactive Analytics',
+        enabled: true,
+      },
+      {
         id: 'overview',
         label: 'Overview',
         enabled: true,
