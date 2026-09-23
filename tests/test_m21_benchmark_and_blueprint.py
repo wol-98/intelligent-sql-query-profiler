@@ -106,35 +106,94 @@ class TestM21Integration(unittest.TestCase):
 
         candidate = OptimizationCandidate(
             candidate_id="123",
-            alternative_type=list(AlternativeType)[0],
+            alternative_type=AlternativeType.SQL_REWRITE,
             status=CandidateStatus.CANDIDATE,
             title="Test CTE",
-            rationale="Test Rationale",
-            original_sql="SELECT *",
-            optimized_sql="WITH cte AS (SELECT *) SELECT * FROM cte",
+            rationale="Test structural CTE alternative.",
+            original_sql="SELECT * FROM orders",
+            optimized_sql=(
+                "WITH cte AS "
+                "(SELECT * FROM orders) "
+                "SELECT * FROM cte"
+            ),
         )
 
         benchmark_mock = {
             "status": "SUCCESS",
             "is_mock_data": True,
+            "evidence_status": "SIMULATED",
             "improvement_percentage": 25.5,
         }
 
         blueprint = generator.build_blueprint(
-            "SELECT *",
-            {"tables": ["t1"]},
+            "SELECT * FROM orders",
+            {"tables": ["orders"]},
             [candidate],
             benchmark_mock,
         )
 
         self.assertEqual(len(blueprint["sections"]), 5)
+
         self.assertEqual(
-            blueprint["sections"][3]["improvement_percentage"],
-            25.5,
+            [section["section"] for section in blueprint["sections"]],
+            [
+                "1. Structural Performance Evaluation",
+                "2. Matrix Comparison",
+                "3. Optimized Structural SQL Code",
+                "4. Indexing Blueprint",
+                "5. Architectural Recommendations and Trade-offs",
+            ],
+        )
+
+        self.assertEqual(
+            blueprint["sections"][2]["status"],
+            "SIMULATED_NOT_DECISIONAL",
+        )
+
+        self.assertEqual(
+            blueprint["sections"][4]["evidence_status"],
+            "SIMULATED",
+        )
+
+        self.assertNotIn(
+            "Recommended",
+            blueprint["sections"][4]["decision_note"],
+        )
+
+    def test_blueprint_does_not_recommend_from_simulated_improvement(self):
+        generator = DynamicBlueprintGenerator()
+
+        candidate = OptimizationCandidate(
+            candidate_id="124",
+            alternative_type=AlternativeType.SQL_REWRITE,
+            status=CandidateStatus.CANDIDATE,
+            title="Simulated Rewrite",
+            rationale="Simulated structural alternative.",
+            original_sql="SELECT * FROM orders",
+            optimized_sql="SELECT * FROM orders WHERE id > 0",
+        )
+
+        benchmark_result = {
+            "status": "SUCCESS",
+            "is_mock_data": True,
+            "evidence_status": "SIMULATED",
+            "improvement_percentage": 80.0,
+        }
+
+        blueprint = generator.build_blueprint(
+            "SELECT * FROM orders",
+            {"tables": ["orders"]},
+            [candidate],
+            benchmark_result,
+        )
+
+        self.assertEqual(
+            blueprint["sections"][4]["evidence_status"],
+            "SIMULATED",
         )
         self.assertIn(
-            "Recommended",
-            blueprint["sections"][4]["verdict"],
+            "simulated",
+            blueprint["sections"][4]["decision_note"].lower(),
         )
 
     def test_benchmark_candidate_rejects_index_candidate(self):

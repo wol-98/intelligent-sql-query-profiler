@@ -22,8 +22,16 @@ class TestDynamicOptimizationRoute(unittest.TestCase):
         self.assertIn("generated_at", data)
         self.assertIn("sections", data)
         self.assertEqual(len(data["sections"]), 5)
-        self.assertEqual(data["sections"][0]["section"], "1. Query Summary")
-        self.assertEqual(data["sections"][4]["section"], "5. Cost/Benefit Verdict")
+        self.assertEqual(
+            [section["section"] for section in data["sections"]],
+            [
+                "1. Structural Performance Evaluation",
+                "2. Matrix Comparison",
+                "3. Optimized Structural SQL Code",
+                "4. Indexing Blueprint",
+                "5. Architectural Recommendations and Trade-offs",
+            ],
+        )
 
 if __name__ == '__main__':
     unittest.main()

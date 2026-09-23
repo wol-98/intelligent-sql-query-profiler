@@ -134,6 +134,7 @@ async def get_optimization_blueprint(
             parsed_metadata,
             candidates,
             benchmark_result,
+            structural_analysis=structural_analysis,
         )
 
     except HTTPException:
