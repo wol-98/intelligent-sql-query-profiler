@@ -174,3 +174,30 @@ def test_missing_table_returns_false_for_column_lookup():
             "products",
             "category_id",
         ) is False
+
+def test_schema_exists_returns_true():
+    connection = MagicMock()
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = (True,)
+
+    with patch(
+        "api.services.schema_introspector.get_connection",
+        return_value=connection,
+    ):
+        introspector = SchemaIntrospector()
+
+        assert introspector.schema_exists() is True
+
+
+def test_schema_exists_returns_false():
+    connection = MagicMock()
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = (False,)
+
+    with patch(
+        "api.services.schema_introspector.get_connection",
+        return_value=connection,
+    ):
+        introspector = SchemaIntrospector()
+
+        assert introspector.schema_exists() is False

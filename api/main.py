@@ -1,3 +1,4 @@
+from api.routes.dynamic_optimization import router as dynamic_optimization_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import cost_benefit
@@ -30,6 +31,9 @@ app = FastAPI(
 )
 
 
+app.include_router(dynamic_optimization_router)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -37,7 +41,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
     ],
     allow_credentials=False,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
