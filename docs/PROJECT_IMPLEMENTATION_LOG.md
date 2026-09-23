@@ -2690,3 +2690,123 @@ produced linked cross-workload analysis.
 **M18 — Linked Index Cost-Benefit Validation: LOCKED**
 
 M18.1, M18.2, M18.3, and M18.4 are complete and documented.
+
+---
+
+## M21 Final Verification Record — 2026-09-23
+
+The M21 dynamic structural SQL optimization family was validated through the
+implemented milestones M21.1-M21.18 and final integration checks.
+
+### M21.14 — Alternative-query benchmarking
+
+Alternative-query benchmarking is implemented with safety-aware handling of
+benchmarkable SQL rewrite candidates. The benchmark layer distinguishes
+measured evidence from simulated evidence and does not treat simulated
+benchmark results as measured production evidence.
+
+### M21.15 — Five-section dynamic optimization blueprint
+
+The dynamic optimization endpoint returns the five-section M21 blueprint:
+
+1. Structural Performance Evaluation
+2. Matrix Comparison
+3. Optimized Structural SQL Code
+4. Indexing Blueprint
+5. Architectural Recommendations and Trade-offs
+
+The live validation confirmed that unavailable structural rewrites remain
+explicitly unavailable and that insufficient performance evidence is reported
+as such.
+
+### M21.16 — Interactive SQL Optimization Studio
+
+The React/Tailwind dashboard provides a dynamic SQL Optimization Studio
+connected to the M21 blueprint endpoint.
+
+Dashboard lint and production build completed successfully.
+
+### M21.17 — Interactive analytics and cross-filtering
+
+Interactive Analytics was added as a dedicated dashboard page without replacing
+the existing evidence/reporting pages.
+
+The page consumes:
+
+- workloads
+- benchmarks
+- cost-benefit evidence
+- composite-index evidence
+- query intelligence
+- production decisions
+- provenance
+
+The live analytics data-path verification returned:
+
+- 15 workloads
+- 23 benchmarks
+- 2 cost-benefit records
+- 4 composite-index records
+- 16 query records
+- 28 production decisions
+- 28 provenance records
+
+Recommendation linkage verification found 28 recommendation IDs across the
+connected workload, query, decision and provenance relationships.
+
+### M21.18 — End-to-end validation, safety review and documentation
+
+Full Python regression:
+
+- 1075 tests passed
+- 1 existing Starlette/AnyIO deprecation warning
+
+Dashboard validation:
+
+- ESLint passed with 0 errors and 0 warnings
+- Vite production build passed
+- git diff --check passed
+
+Live reporting API verification:
+
+- /api/overview — 200
+- /api/workloads — 200
+- /api/benchmarks — 200
+- /api/cost-benefit — 200
+- /api/composite-indexes — 200
+- /api/queries — 200
+- /api/decisions — 200
+- /api/provenance — 200
+
+Dynamic SQL safety verification:
+
+- valid SELECT blueprint — 200
+- malformed SQL — 422
+- missing schema — 422
+- missing table — 422
+- missing column — 422
+- UPDATE — 422
+- DELETE — 422
+- CREATE TABLE — 422
+- multi-statement SQL — 422
+
+The dynamic endpoint therefore remains read-oriented and rejects unsupported
+statement types and multi-statement input before entering the optimization
+pipeline.
+
+The final valid blueprint test produced candidate recommendations while
+retaining INSUFFICIENT performance evidence where no measured alternative
+performance evidence existed. No global-optimality claim was emitted.
+
+Git checkpoint:
+
+- c329c11 — feat(M21): implement interactive analytics
+- branch: m21-structural-optimization
+- remote synchronized
+- working tree clean at the time of verification
+
+M21 evidence principle:
+
+Optimization candidates remain distinct from validated performance claims.
+Measured, simulated, insufficient and unavailable evidence states are kept
+explicit throughout the dynamic optimization workflow.

@@ -423,17 +423,35 @@ Integrated index plus structural optimization.
 ### M21.14
 Alternative-query benchmarking.
 
+Implemented with safety-aware benchmarkability checks and explicit separation
+between measured and simulated evidence.
+
 ### M21.15
 Dynamic optimization report.
+
+Implemented using the five-section dynamic optimization blueprint:
+Structural Performance Evaluation, Matrix Comparison, Optimized Structural SQL
+Code, Indexing Blueprint, and Architectural Recommendations and Trade-offs.
 
 ### M21.16
 Interactive SQL Optimization Studio.
 
+Implemented as a React/Tailwind dashboard page connected to the dynamic
+optimization blueprint endpoint.
+
 ### M21.17
 Interactive analytics.
 
+Implemented as a dedicated React/Tailwind analytics page with workload,
+benchmark, cost-benefit, composite-index, query, decision and provenance
+visualizations plus cross-filtering through recommendation relationships.
+
 ### M21.18
 End-to-end validation and documentation.
+
+Validated through full Python regression, dashboard lint/build, live API
+smoke tests, dynamic SQL/schema safety tests, analytics data-path checks, and
+documentation updates.
 
 ---
 
