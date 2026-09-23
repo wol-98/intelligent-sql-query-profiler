@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { getWorkloads } from '../api/client'
 import StatusBadge from '../components/common/StatusBadge'
+import KpiCard from '../components/ui/KpiCard'
 import PerformanceAnalytics from '../components/workloads/PerformanceAnalytics'
 import WorkloadTable from '../components/workloads/WorkloadTable'
 
@@ -11,57 +12,6 @@ function formatMilliseconds(value) {
   }
 
   return `${Number(value).toFixed(3)} ms`
-}
-
-function SummaryCard({
-  label,
-  value,
-  description,
-  accent = 'blue',
-}) {
-  const accents = {
-    blue: 'before:bg-blue-500',
-    violet: 'before:bg-violet-500',
-    cyan: 'before:bg-cyan-500',
-    emerald: 'before:bg-emerald-500',
-    slate: 'before:bg-slate-400',
-  }
-
-  return (
-    <article
-      className={`dashboard-card-interactive relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 before:absolute before:inset-x-0 before:top-0 before:h-0.5 ${accents[accent] || accents.blue}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[0.65rem] font-bold uppercase tracking-[0.1em] text-slate-400">
-          {label}
-        </p>
-
-        <span
-          className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
-            accent === 'violet'
-              ? 'bg-violet-400'
-              : accent === 'cyan'
-                ? 'bg-cyan-400'
-                : accent === 'emerald'
-                  ? 'bg-emerald-400'
-                  : accent === 'slate'
-                    ? 'bg-slate-400'
-                    : 'bg-blue-400'
-          }`}
-        />
-      </div>
-
-      <p className="mt-3 text-2xl font-bold tracking-tight text-slate-950">
-        {value}
-      </p>
-
-      {description && (
-        <p className="mt-1.5 text-xs leading-5 text-slate-400">
-          {description}
-        </p>
-      )}
-    </article>
-  )
 }
 
 function WorkloadConcentration({ workload }) {
@@ -329,39 +279,39 @@ function WorkloadsPage({ onSelectRecommendation }) {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <SummaryCard
+          <KpiCard
             label="Workload patterns"
             value={summary.total}
             description="Structural fingerprints"
-            accent="blue"
+            tone="default"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Critical"
             value={summary.critical}
             description="50% or more of execution time"
-            accent="violet"
+            tone="default"
           />
 
-          <SummaryCard
+          <KpiCard
             label="High"
             value={summary.high}
             description="10% to under 50%"
-            accent="cyan"
+            tone="default"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Moderate"
             value={summary.moderate}
             description="5% to under 10%"
-            accent="slate"
+            tone="neutral"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Total execution time"
             value={formatMilliseconds(summary.totalExecutionTime)}
             description="Across profiled workloads"
-            accent="emerald"
+            tone="default"
           />
         </div>
       </section>

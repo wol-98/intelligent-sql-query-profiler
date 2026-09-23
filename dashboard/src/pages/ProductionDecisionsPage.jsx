@@ -4,6 +4,7 @@ import {
   getProductionDecision,
   getProductionDecisions,
 } from "../api/client";
+import KpiCard from "../components/ui/KpiCard";
 
 const DECISION_STATES = [
   "ALL",
@@ -164,66 +165,6 @@ function StatusBadge({ value }) {
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  description,
-  accent = "blue",
-}) {
-  const accents = {
-    blue: {
-      border: "border-blue-200",
-      dot: "bg-blue-500",
-      value: "text-slate-950",
-    },
-    green: {
-      border: "border-emerald-200",
-      dot: "bg-emerald-500",
-      value: "text-emerald-700",
-    },
-    amber: {
-      border: "border-amber-200",
-      dot: "bg-amber-500",
-      value: "text-amber-700",
-    },
-    rose: {
-      border: "border-rose-200",
-      dot: "bg-rose-500",
-      value: "text-rose-700",
-    },
-    slate: {
-      border: "border-slate-200",
-      dot: "bg-slate-400",
-      value: "text-slate-700",
-    },
-  };
-
-  const meta = accents[accent] || accents.blue;
-
-  return (
-    <div
-      className={`relative overflow-hidden rounded-2xl border bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] ${meta.border}`}
-    >
-      <div className="absolute right-5 top-5">
-        <span className={`block h-2.5 w-2.5 rounded-full ${meta.dot}`} />
-      </div>
-
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-        {label}
-      </p>
-
-      <p
-        className={`mt-3 text-3xl font-bold tracking-tight ${meta.value}`}
-      >
-        {value}
-      </p>
-
-      <p className="mt-1 text-xs text-slate-400">
-        {description}
-      </p>
-    </div>
-  );
-}
 
 function DistributionBar({
   label,
@@ -630,46 +571,46 @@ export default function ProductionDecisionsPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-          <MetricCard
+          <KpiCard
             label="Total decisions"
             value={summary.total}
             description="All recommendations"
-            accent="blue"
+            tone="default"
           />
 
-          <MetricCard
+          <KpiCard
             label="Recommend"
             value={summary.recommend}
             description="M19 decision state"
-            accent="green"
+            tone="success"
           />
 
-          <MetricCard
+          <KpiCard
             label="Review"
             value={summary.review}
             description="Requires review"
-            accent="amber"
+            tone="warning"
           />
 
-          <MetricCard
+          <KpiCard
             label="Reject"
             value={summary.reject}
             description="M19 decision state"
-            accent="rose"
+            tone="danger"
           />
 
-          <MetricCard
+          <KpiCard
             label="Insufficient"
             value={summary.insufficient}
             description="Evidence incomplete"
-            accent="slate"
+            tone="neutral"
           />
 
-          <MetricCard
+          <KpiCard
             label="Complete evidence"
             value={summary.complete}
             description={`${summary.guardrailPass} guardrail-pass records`}
-            accent="green"
+            tone="success"
           />
         </div>
       </section>

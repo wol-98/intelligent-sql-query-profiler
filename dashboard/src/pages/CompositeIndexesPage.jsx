@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { getCompositeIndexes } from '../api/client'
+import KpiCard from '../components/ui/KpiCard'
 
 function formatPercent(value) {
   if (value === null || value === undefined) {
@@ -87,46 +88,6 @@ function SectionEyebrow({ children, tone = 'blue' }) {
   )
 }
 
-function SummaryCard({ label, value, detail, tone = 'blue' }) {
-  const accents = {
-    blue: 'border-blue-200',
-    cyan: 'border-cyan-200',
-    violet: 'border-violet-200',
-    emerald: 'border-emerald-200',
-    amber: 'border-amber-200',
-  }
-
-  const dots = {
-    blue: 'bg-blue-500',
-    cyan: 'bg-cyan-500',
-    violet: 'bg-violet-500',
-    emerald: 'bg-emerald-500',
-    amber: 'bg-amber-500',
-  }
-
-  return (
-    <div
-      className={`relative overflow-hidden rounded-2xl border bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${accents[tone]}`}
-    >
-      <div className="absolute right-4 top-4">
-        <span className={`block h-2 w-2 rounded-full ${dots[tone]}`} />
-      </div>
-
-      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-400">
-        {label}
-      </p>
-
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-        {value}
-      </p>
-
-      {detail && (
-        <p className="mt-2 text-xs leading-5 text-slate-400">{detail}</p>
-      )}
-    </div>
-  )
-}
-
 function ColumnOrder({ columns, emphasized = false }) {
   return (
     <div
@@ -185,27 +146,6 @@ function ImprovementBar({ value, label }) {
   )
 }
 
-function ComparisonMetric({ label, value, tone = 'default' }) {
-  const valueClass =
-    tone === 'positive'
-      ? 'text-emerald-600'
-      : tone === 'negative'
-        ? 'text-rose-600'
-        : 'text-slate-950'
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
-        {label}
-      </p>
-
-      <p className={`mt-2 text-xl font-semibold tracking-tight ${valueClass}`}>
-        {value}
-      </p>
-    </div>
-  )
-}
-
 function CompositeExperimentCard({ experiment }) {
   const effect = experiment.order_effect_percentage_points
 
@@ -223,7 +163,7 @@ function CompositeExperimentCard({ experiment }) {
       <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-blue-50/40 px-6 py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <SectionEyebrow tone="violet">M16.2 experiment</SectionEyebrow>
+            <SectionEyebrow tone="default">M16.2 experiment</SectionEyebrow>
 
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <h3 className="text-lg font-semibold text-slate-950">
@@ -293,38 +233,38 @@ function CompositeExperimentCard({ experiment }) {
         </div>
 
         <div className="grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-3">
-          <ComparisonMetric
+          <KpiCard
             label="Original improvement"
             value={formatPercent(experiment.original_improvement_percent)}
             tone={
               experiment.original_improvement_percent > 0
-                ? 'positive'
+                ? 'success'
                 : experiment.original_improvement_percent < 0
-                  ? 'negative'
+                  ? 'danger'
                   : 'default'
             }
           />
 
-          <ComparisonMetric
+          <KpiCard
             label="Alternative improvement"
             value={formatPercent(experiment.alternative_improvement_percent)}
             tone={
               experiment.alternative_improvement_percent > 0
-                ? 'positive'
+                ? 'success'
                 : experiment.alternative_improvement_percent < 0
-                  ? 'negative'
+                  ? 'danger'
                   : 'default'
             }
           />
 
-          <ComparisonMetric
+          <KpiCard
             label="Order effect"
             value={formatEffect(effect)}
             tone={
               effect > 0
-                ? 'positive'
+                ? 'success'
                 : effect < 0
-                  ? 'negative'
+                  ? 'danger'
                   : 'default'
             }
           />
@@ -484,7 +424,7 @@ function CompositeIndexesPage() {
 
         <div className="relative flex flex-col gap-6 px-7 py-7 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <SectionEyebrow tone="violet">
+            <SectionEyebrow tone="default">
               Evaluation intelligence
             </SectionEyebrow>
 
@@ -534,7 +474,7 @@ function CompositeIndexesPage() {
         <>
           <section>
             <div className="mb-4">
-              <SectionEyebrow tone="blue">Evidence snapshot</SectionEyebrow>
+              <SectionEyebrow tone="default">Evidence snapshot</SectionEyebrow>
 
               <h2 className="mt-2 text-xl font-semibold text-slate-950">
                 Composite-order experiment overview
@@ -546,46 +486,46 @@ function CompositeIndexesPage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-              <SummaryCard
+              <KpiCard
                 label="Evaluated"
                 value={summary.total}
-                detail="Established M16.2 comparisons"
-                tone="blue"
+                description="Established M16.2 comparisons"
+                tone="default"
               />
 
-              <SummaryCard
+              <KpiCard
                 label="Two-column"
                 value={summary.twoColumn}
-                detail="Two-column order tests"
-                tone="cyan"
+                description="Two-column order tests"
+                tone="default"
               />
 
-              <SummaryCard
+              <KpiCard
                 label="Three-column"
                 value={summary.threeColumn}
-                detail="Three-column order tests"
-                tone="violet"
+                description="Three-column order tests"
+                tone="default"
               />
 
-              <SummaryCard
+              <KpiCard
                 label="Original used"
                 value={`${summary.originalUsed}/${summary.total}`}
-                detail="Original variants used"
-                tone="emerald"
+                description="Original variants used"
+                tone="default"
               />
 
-              <SummaryCard
+              <KpiCard
                 label="Alternative used"
                 value={`${summary.alternativeUsed}/${summary.total}`}
-                detail="Alternative variants used"
-                tone="amber"
+                description="Alternative variants used"
+                tone="default"
               />
             </div>
           </section>
 
           <section>
             <div className="mb-4">
-              <SectionEyebrow tone="violet">
+              <SectionEyebrow tone="default">
                 Order-effect overview
               </SectionEyebrow>
 
@@ -646,7 +586,7 @@ function CompositeIndexesPage() {
 
           <section>
             <div className="mb-4">
-              <SectionEyebrow tone="cyan">
+              <SectionEyebrow tone="default">
                 Column-order experiments
               </SectionEyebrow>
 
@@ -671,7 +611,7 @@ function CompositeIndexesPage() {
           </section>
 
           <section className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50/70 via-white to-white p-6 shadow-sm">
-            <SectionEyebrow tone="amber">Evidence boundary</SectionEyebrow>
+            <SectionEyebrow tone="warning">Evidence boundary</SectionEyebrow>
 
             <h2 className="mt-3 text-base font-semibold text-slate-950">
               How to interpret composite-index order evidence

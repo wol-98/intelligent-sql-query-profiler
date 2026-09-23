@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getProvenance } from '../api/client'
 import StatusBadge from '../components/common/StatusBadge'
 import ProvenanceDetail from '../components/provenance/ProvenanceDetail'
+import KpiCard from '../components/ui/KpiCard'
 
 function SectionLabel({ children, tone = 'blue' }) {
   const tones = {
@@ -17,50 +18,6 @@ function SectionLabel({ children, tone = 'blue' }) {
     <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
       <span className={`h-2 w-2 rounded-full ${tones[tone] || tones.blue}`} />
       {children}
-    </div>
-  )
-}
-
-function SummaryCard({ label, value, description, tone = 'blue' }) {
-  const accents = {
-    blue: 'border-blue-200',
-    cyan: 'border-cyan-200',
-    violet: 'border-violet-200',
-    emerald: 'border-emerald-200',
-    slate: 'border-slate-200',
-  }
-
-  const dots = {
-    blue: 'bg-blue-500',
-    cyan: 'bg-cyan-500',
-    violet: 'bg-violet-500',
-    emerald: 'bg-emerald-500',
-    slate: 'bg-slate-400',
-  }
-
-  return (
-    <div
-      className={`relative overflow-hidden rounded-2xl border bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${
-        accents[tone] || accents.blue
-      }`}
-    >
-      <span
-        className={`absolute right-4 top-4 h-2 w-2 rounded-full ${
-          dots[tone] || dots.blue
-        }`}
-      />
-
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-        {label}
-      </p>
-
-      <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-        {value}
-      </p>
-
-      <p className="mt-1 text-xs leading-5 text-slate-400">
-        {description}
-      </p>
     </div>
   )
 }
@@ -455,7 +412,7 @@ function EvidenceProvenancePage() {
 
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <SectionLabel tone="cyan">
+            <SectionLabel tone="default">
               Decision &amp; evidence
             </SectionLabel>
 
@@ -488,7 +445,7 @@ function EvidenceProvenancePage() {
       {/* KPI summary */}
       <section>
         <div className="mb-3">
-          <SectionLabel tone="blue">
+          <SectionLabel tone="default">
             Evidence snapshot
           </SectionLabel>
 
@@ -503,39 +460,39 @@ function EvidenceProvenancePage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <SummaryCard
+          <KpiCard
             label="Total records"
             value={summary.total}
             description="Recommendation provenance records"
-            tone="blue"
+            tone="default"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Linked"
             value={summary.linked}
             description="Explicit experimental linkage established"
-            tone="cyan"
+            tone="default"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Not established"
             value={summary.notEstablished}
             description="No explicit experimental linkage"
-            tone="slate"
+            tone="neutral"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Complete"
             value={summary.complete}
             description="Evidence status COMPLETE"
-            tone="emerald"
+            tone="success"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Insufficient"
             value={summary.insufficient}
             description="Evidence status INSUFFICIENT"
-            tone="violet"
+            tone="danger"
           />
         </div>
       </section>
@@ -543,7 +500,7 @@ function EvidenceProvenancePage() {
       {/* Provenance health */}
       <section className="grid gap-5 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <SectionLabel tone="cyan">
+          <SectionLabel tone="default">
             Provenance state
           </SectionLabel>
 
@@ -562,7 +519,7 @@ function EvidenceProvenancePage() {
               value={summary.linked}
               total={summary.total}
               description="Explicit provenance established"
-              tone="cyan"
+              tone="default"
             />
 
             <DistributionCard
@@ -570,13 +527,13 @@ function EvidenceProvenancePage() {
               value={summary.notEstablished}
               total={summary.total}
               description="No explicit experimental linkage"
-              tone="slate"
+              tone="neutral"
             />
           </div>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <SectionLabel tone="violet">
+          <SectionLabel tone="danger">
             Evidence completeness
           </SectionLabel>
 
@@ -594,7 +551,7 @@ function EvidenceProvenancePage() {
               value={summary.complete}
               total={summary.total}
               description="Required evidence available"
-              tone="emerald"
+              tone="success"
             />
 
             <DistributionCard
@@ -602,7 +559,7 @@ function EvidenceProvenancePage() {
               value={summary.partial}
               total={summary.total}
               description="Evidence partially established"
-              tone="violet"
+              tone="danger"
             />
 
             <DistributionCard
@@ -610,7 +567,7 @@ function EvidenceProvenancePage() {
               value={summary.insufficient}
               total={summary.total}
               description="Evidence not sufficient for complete linkage"
-              tone="slate"
+              tone="neutral"
             />
           </div>
         </div>
@@ -618,7 +575,7 @@ function EvidenceProvenancePage() {
 
       {/* Evidence chain */}
       <section className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50/70 via-white to-cyan-50/50 p-6 shadow-sm">
-        <SectionLabel tone="blue">
+        <SectionLabel tone="default">
           Evidence chain
         </SectionLabel>
 
@@ -673,7 +630,7 @@ function EvidenceProvenancePage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end">
           <div className="flex-1">
-            <SectionLabel tone="blue">
+            <SectionLabel tone="default">
               Evidence register
             </SectionLabel>
 

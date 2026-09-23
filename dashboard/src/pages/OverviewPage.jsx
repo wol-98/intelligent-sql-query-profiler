@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { getOverview } from '../api/client'
 import EvidenceSummary from '../components/overview/EvidenceSummary'
-import MetricCard from '../components/overview/MetricCard'
+import KpiCard from '../components/ui/KpiCard'
 import PerformanceSummary from '../components/overview/PerformanceSummary'
 
 function OverviewPage() {
@@ -136,40 +136,40 @@ function OverviewPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-          <MetricCard
+          <KpiCard
             label="Recommendations"
             value={overview.counts.recommendations}
-            variant="blue"
+            tone="default"
           />
 
-          <MetricCard
+          <KpiCard
             label="Evaluated"
             value={overview.counts.evaluated_recommendations}
-            variant="violet"
+            tone="default"
           />
 
-          <MetricCard
+          <KpiCard
             label="Benchmarks"
             value={overview.counts.benchmark_evaluations}
-            variant="cyan"
+            tone="default"
           />
 
-          <MetricCard
+          <KpiCard
             label="Successful"
             value={overview.counts.successful_recommendations}
-            variant="emerald"
+            tone="success"
           />
 
-          <MetricCard
+          <KpiCard
             label="Neutral"
             value={overview.counts.neutral_recommendations}
-            variant="slate"
+            tone="neutral"
           />
 
-          <MetricCard
+          <KpiCard
             label="Unsuccessful"
             value={overview.counts.unsuccessful_recommendations}
-            variant="rose"
+            tone="danger"
           />
         </div>
       </section>

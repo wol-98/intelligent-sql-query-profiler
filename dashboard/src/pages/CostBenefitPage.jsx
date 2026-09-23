@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { getCostBenefits } from '../api/client'
 import StatusBadge from '../components/common/StatusBadge'
+import KpiCard from '../components/ui/KpiCard'
 
 function formatPercent(value) {
   if (value === null || value === undefined) {
@@ -59,7 +60,7 @@ function PageHeader({ total }) {
 
       <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <SectionEyebrow tone="cyan">Evaluation intelligence</SectionEyebrow>
+          <SectionEyebrow tone="default">Evaluation intelligence</SectionEyebrow>
 
           <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
             Cost &amp; Benefit Intelligence
@@ -86,57 +87,6 @@ function PageHeader({ total }) {
         </div>
       </div>
     </section>
-  )
-}
-
-function SummaryCard({
-  label,
-  value,
-  description,
-  tone = 'blue',
-}) {
-  const tones = {
-    blue: 'border-blue-400',
-    cyan: 'border-cyan-400',
-    violet: 'border-violet-400',
-    emerald: 'border-emerald-400',
-    amber: 'border-amber-400',
-  }
-
-  return (
-    <article
-      className={`relative overflow-hidden rounded-xl border border-slate-200 border-l-4 ${tones[tone]} bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
-          {label}
-        </p>
-
-        <span
-          className={`h-2 w-2 rounded-full ${
-            tone === 'cyan'
-              ? 'bg-cyan-400'
-              : tone === 'violet'
-                ? 'bg-violet-400'
-                : tone === 'emerald'
-                  ? 'bg-emerald-400'
-                  : tone === 'amber'
-                    ? 'bg-amber-400'
-                    : 'bg-blue-400'
-          }`}
-        />
-      </div>
-
-      <p className="mt-3 text-2xl font-bold tracking-tight text-slate-950">
-        {value}
-      </p>
-
-      {description && (
-        <p className="mt-1 text-xs leading-5 text-slate-400">
-          {description}
-        </p>
-      )}
-    </article>
   )
 }
 
@@ -262,7 +212,7 @@ function CostProfileCard({ experiment }) {
     <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <SectionEyebrow tone="violet">Cost profile</SectionEyebrow>
+          <SectionEyebrow tone="warning">Cost profile</SectionEyebrow>
 
           <h4 className="mt-2 font-mono text-sm font-bold text-slate-950">
             {experiment.experiment_id}
@@ -504,7 +454,7 @@ function CostBenefitPage() {
 
       <section>
         <div className="mb-4">
-          <SectionEyebrow tone="blue">Evidence snapshot</SectionEyebrow>
+          <SectionEyebrow tone="default">Evidence snapshot</SectionEyebrow>
 
           <h3 className="mt-2 text-xl font-bold tracking-tight text-slate-950">
             Linked experiment overview
@@ -517,39 +467,39 @@ function CostBenefitPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard
+          <KpiCard
             label="Linked experiments"
             value={summary.total}
             description="Explicitly linked M18 evidence"
-            tone="blue"
+            tone="default"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Complete evidence"
             value={summary.complete}
             description="Evidence status COMPLETE"
-            tone="emerald"
+            tone="success"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Average read improvement"
             value={formatPercent(summary.averageImprovement)}
             description="Across available complete evidence"
-            tone="cyan"
+            tone="default"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Average storage ratio"
             value={formatPercent(summary.averageStorageRatio)}
             description="Index size relative to table size"
-            tone="violet"
+            tone="warning"
           />
         </div>
       </section>
 
       <section>
         <div className="mb-4">
-          <SectionEyebrow tone="cyan">Read performance</SectionEyebrow>
+          <SectionEyebrow tone="default">Read performance</SectionEyebrow>
 
           <h3 className="mt-2 text-xl font-bold tracking-tight text-slate-950">
             Measured read benefit
@@ -579,7 +529,7 @@ function CostBenefitPage() {
 
       <section>
         <div className="mb-4">
-          <SectionEyebrow tone="violet">Cost profile</SectionEyebrow>
+          <SectionEyebrow tone="warning">Cost profile</SectionEyebrow>
 
           <h3 className="mt-2 text-xl font-bold tracking-tight text-slate-950">
             Storage and write-maintenance impact
@@ -608,7 +558,7 @@ function CostBenefitPage() {
 
       <section>
         <div className="mb-4">
-          <SectionEyebrow tone="emerald">Evidence register</SectionEyebrow>
+          <SectionEyebrow tone="success">Evidence register</SectionEyebrow>
 
           <h3 className="mt-2 text-xl font-bold tracking-tight text-slate-950">
             Experiment evidence

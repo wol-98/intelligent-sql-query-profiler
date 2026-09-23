@@ -5,26 +5,70 @@
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
 
-  color: #172033;
-  background: #f4f7fb;
+  color: #14213d;
+  background: #f7f9fc;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --navy-950: #08111f;
-  --navy-900: #0b1729;
-  --navy-800: #10213a;
-  --navy-700: #173052;
+  /* ==========================================================
+     SQL PROFILER DESIGN SYSTEM
+     ========================================================== */
 
-  --blue-600: #2563eb;
-  --blue-500: #3b82f6;
+  /* ----------------------------------------------------------
+     Brand
+     ---------------------------------------------------------- */
+
+  --profiler-navy: #162456;
+  --profiler-navy-dark: #101a3d;
+  --profiler-navy-deep: #0d1735;
+
+  --profiler-blue: #155dfc;
+  --profiler-blue-dark: #2446a8;
+  --profiler-blue-soft: #eff6ff;
+
+  --profiler-red: #e11d48;
+  --profiler-red-dark: #be123c;
+  --profiler-red-soft: #fff1f2;
+
+  /* ----------------------------------------------------------
+     Semantic status colours
+     These remain independent from the brand palette.
+     ---------------------------------------------------------- */
+
+  --status-success: #10b981;
+  --status-warning: #f59e0b;
+  --status-error: #ef4444;
+  --status-neutral: #94a3b8;
+
+  /* ----------------------------------------------------------
+     Legacy / compatibility palette
+     Existing pages still use these tokens.
+     ---------------------------------------------------------- */
+
+  --navy-950: #101a3d;
+  --navy-900: #162456;
+  --navy-800: #1e3268;
+  --navy-700: #29458a;
+
+  --blue-600: #155dfc;
+  --blue-500: #155dfc;
   --blue-400: #60a5fa;
 
+  /*
+   * Violet remains available for existing analytical
+   * components during the gradual migration.
+   * It is no longer part of the application shell identity.
+   */
   --violet-600: #7c3aed;
   --violet-500: #8b5cf6;
 
+  /*
+   * Cyan remains available where it carries analytical
+   * meaning. It is no longer the primary UI accent.
+   */
   --cyan-600: #0891b2;
   --cyan-500: #06b6d4;
 
@@ -32,33 +76,62 @@
   --amber-600: #d97706;
   --rose-600: #e11d48;
 
-  --slate-950: #0f172a;
-  --slate-900: #172033;
-  --slate-800: #1e293b;
-  --slate-700: #334155;
-  --slate-600: #475569;
-  --slate-500: #64748b;
+  /* ----------------------------------------------------------
+     Typography
+     ---------------------------------------------------------- */
+
+  --text-primary: #14213d;
+  --text-secondary: #61708f;
+  --text-muted: #94a3b8;
+
+  --slate-950: #14213d;
+  --slate-900: #1b2945;
+  --slate-800: #263754;
+  --slate-700: #3f506e;
+  --slate-600: #52627d;
+  --slate-500: #61708f;
   --slate-400: #94a3b8;
   --slate-300: #cbd5e1;
   --slate-200: #e2e8f0;
   --slate-100: #f1f5f9;
   --slate-50: #f8fafc;
 
+  /* ----------------------------------------------------------
+     Surfaces
+     ---------------------------------------------------------- */
+
   --surface: #ffffff;
   --surface-soft: #f8fafc;
-  --workspace: #f4f7fb;
+  --surface-blue: #eff6ff;
+  --surface-red: #fff1f2;
+  --workspace: #f7f9fc;
+
+  /* ----------------------------------------------------------
+     Borders
+     ---------------------------------------------------------- */
+
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  /* ----------------------------------------------------------
+     Shadows
+     ---------------------------------------------------------- */
 
   --shadow-sm:
-    0 1px 2px rgba(15, 23, 42, 0.035),
-    0 4px 12px rgba(15, 23, 42, 0.025);
+    0 1px 2px rgba(20, 33, 61, 0.035),
+    0 4px 12px rgba(20, 33, 61, 0.025);
 
   --shadow-md:
-    0 8px 24px rgba(15, 23, 42, 0.065),
-    0 2px 6px rgba(15, 23, 42, 0.035);
+    0 8px 24px rgba(20, 33, 61, 0.065),
+    0 2px 6px rgba(20, 33, 61, 0.035);
 
   --shadow-lg:
-    0 16px 40px rgba(15, 23, 42, 0.085),
-    0 4px 12px rgba(15, 23, 42, 0.045);
+    0 16px 40px rgba(20, 33, 61, 0.085),
+    0 4px 12px rgba(20, 33, 61, 0.045);
+
+  /* ----------------------------------------------------------
+     Shape
+     ---------------------------------------------------------- */
 
   --radius-card: 0.9rem;
   --radius-panel: 1rem;
@@ -83,19 +156,21 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+
   background:
     radial-gradient(
       circle at 85% 0%,
-      rgba(59, 130, 246, 0.055),
+      rgba(21, 93, 252, 0.055),
       transparent 30rem
     ),
     radial-gradient(
       circle at 10% 100%,
-      rgba(124, 58, 237, 0.025),
+      rgba(225, 29, 72, 0.025),
       transparent 24rem
     ),
     var(--workspace);
-  color: var(--slate-950);
+
+  color: var(--text-primary);
 }
 
 button,
@@ -114,11 +189,13 @@ button:disabled {
 }
 
 ::selection {
-  background: rgba(37, 99, 235, 0.16);
-  color: var(--slate-950);
+  background: rgba(21, 93, 252, 0.16);
+  color: var(--text-primary);
 }
 
-/* Subtle application-wide scrollbar treatment */
+/* ==========================================================
+   Application-wide scrollbar
+   ========================================================== */
 
 * {
   scrollbar-width: thin;

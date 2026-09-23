@@ -2,76 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { getBenchmarks } from '../api/client'
 import BenchmarkTable from '../components/benchmarks/BenchmarkTable'
+import KpiCard from '../components/ui/KpiCard'
 import BenchmarkDetail from '../components/benchmarks/BenchmarkDetail'
-
-function SummaryCard({
-  label,
-  value,
-  description,
-  percentage,
-  accent = 'blue',
-}) {
-  const accents = {
-    blue: {
-      border: 'border-blue-500',
-      dot: 'bg-blue-500',
-      glow: 'bg-blue-500/10',
-    },
-    green: {
-      border: 'border-emerald-500',
-      dot: 'bg-emerald-500',
-      glow: 'bg-emerald-500/10',
-    },
-    cyan: {
-      border: 'border-cyan-500',
-      dot: 'bg-cyan-500',
-      glow: 'bg-cyan-500/10',
-    },
-    red: {
-      border: 'border-rose-500',
-      dot: 'bg-rose-500',
-      glow: 'bg-rose-500/10',
-    },
-  }
-
-  const style = accents[accent] || accents.blue
-
-  return (
-    <article
-      className={`dashboard-card relative overflow-hidden border-l-4 ${style.border} p-5`}
-    >
-      <div
-        className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl ${style.glow}`}
-      />
-
-      <div className="relative">
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-            {label}
-          </p>
-
-          <span className={`mt-1 h-2.5 w-2.5 rounded-full ${style.dot}`} />
-        </div>
-
-        <div className="mt-3 flex items-end justify-between gap-3">
-          <p className="text-3xl font-bold tracking-tight text-slate-950">
-            {value}
-          </p>
-
-          {percentage !== undefined && (
-            <span className="pb-1 text-xs font-semibold text-slate-400">
-              {percentage}%
-            </span>
-          )}
-        </div>
-
-        <p className="mt-1 text-xs leading-5 text-slate-500">
-          {description}
-        </p>
-      </div>
-    </article>
-  )
-}
 
 function OutcomeComposition({ summary }) {
   const total = summary.total || 1
@@ -557,48 +489,48 @@ function BenchmarksPage({ onNavigateToRecommendation }) {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard
+          <KpiCard
             label="Total benchmarks"
             value={summary.total}
             description="Stored benchmark records"
-            percentage="100.00"
-            accent="blue"
+            meta="100.00%"
+            tone="default"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Successful"
             value={summary.successful}
             description="Successful validation outcomes"
-            percentage={
+            meta={
               summary.total
-                ? ((summary.successful / summary.total) * 100).toFixed(2)
-                : '0.00'
+                ? `${((summary.successful / summary.total) * 100).toFixed(2)}%`
+                : '0.00%'
             }
-            accent="green"
+            tone="success"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Neutral"
             value={summary.neutral}
             description="Neutral validation outcomes"
-            percentage={
+            meta={
               summary.total
-                ? ((summary.neutral / summary.total) * 100).toFixed(2)
-                : '0.00'
+                ? `${((summary.neutral / summary.total) * 100).toFixed(2)}%`
+                : '0.00%'
             }
-            accent="cyan"
+            tone="neutral"
           />
 
-          <SummaryCard
+          <KpiCard
             label="Unsuccessful"
             value={summary.unsuccessful}
             description="Unsuccessful validation outcomes"
-            percentage={
+            meta={
               summary.total
-                ? ((summary.unsuccessful / summary.total) * 100).toFixed(2)
-                : '0.00'
+                ? `${((summary.unsuccessful / summary.total) * 100).toFixed(2)}%`
+                : '0.00%'
             }
-            accent="red"
+            tone="danger"
           />
         </div>
       </section>

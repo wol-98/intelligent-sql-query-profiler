@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getQueries } from '../api/client'
+import KpiCard from '../components/ui/KpiCard'
 import QueryTable from '../components/queries/QueryTable'
 import QueryDetail from '../components/queries/QueryDetail'
 
@@ -220,50 +221,26 @@ function QueriesPage({ onNavigateToRecommendation }) {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
-                Query Profiles
-              </p>
-              <span className="h-2 w-2 rounded-full bg-blue-500" />
-            </div>
-            <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
-              {queries.length}
-            </p>
-            <p className="mt-2 text-xs text-slate-400">
-              Profiles reported by the query API
-            </p>
-          </div>
+          <KpiCard
+            label="Query Profiles"
+            value={queries.length}
+            description="Profiles reported by the query API"
+            tone="default"
+          />
 
-          <div className="rounded-2xl border border-cyan-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
-                Visible Profiles
-              </p>
-              <span className="h-2 w-2 rounded-full bg-cyan-500" />
-            </div>
-            <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
-              {filteredQueries.length}
-            </p>
-            <p className="mt-2 text-xs text-slate-400">
-              Profiles matching the current filters
-            </p>
-          </div>
+          <KpiCard
+            label="Visible Profiles"
+            value={filteredQueries.length}
+            description="Profiles matching the current filters"
+            tone="default"
+          />
 
-          <div className="rounded-2xl border border-violet-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
-                Query Types
-              </p>
-              <span className="h-2 w-2 rounded-full bg-violet-500" />
-            </div>
-            <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
-              {queryTypeCount}
-            </p>
-            <p className="mt-2 text-xs text-slate-400">
-              Distinct query types represented
-            </p>
-          </div>
+          <KpiCard
+            label="Query Types"
+            value={queryTypeCount}
+            description="Distinct query types represented"
+            tone="default"
+          />
         </div>
       </section>
 
