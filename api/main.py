@@ -1,3 +1,4 @@
+from api.routes.dynamic_optimization import router as dynamic_optimization_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import cost_benefit
@@ -18,6 +19,7 @@ from api.routes.recommendations import (
 
 
 app = FastAPI(
+app.include_router(dynamic_optimization_router)
     title=(
         "Intelligent SQL Query Profiler "
         "& Index Optimization Engine"
