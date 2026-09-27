@@ -2,7 +2,7 @@
 **Project Implementation Log**  
 **Project Type:** MSc End Semester Project  
    
- **Project Scope:** 100-mark research-oriented prototype  
+ **Project Scope:** research-oriented prototype  
    
  **Team:** Wol, Delvin, Leon, Samrin  
    
