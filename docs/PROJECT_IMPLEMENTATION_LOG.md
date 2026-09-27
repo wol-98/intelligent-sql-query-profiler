@@ -1,6 +1,6 @@
 **Intelligent SQL Query Profiler & Index Optimization Engine**  
 **Project Implementation Log**  
-**Project Type:** MSc End Semester Project  
+**Project Type:** MSc Computing for Data Science End Semester Project  
    
  **Project Scope:** research-oriented prototype  
    
