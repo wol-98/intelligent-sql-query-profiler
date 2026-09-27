@@ -2,7 +2,7 @@
 
 A research-oriented system for profiling SQL workloads, analyzing PostgreSQL execution plans, generating index recommendations, experimentally validating those recommendations, and evaluating their performance, workload, cost, decision, and provenance evidence.
 
-**Project Type:** MSc End Semester Project
+**Project Type:** MSc Computing for Data Science End Semester Project
 **Team:** Wol, Delvin, Leon, Samrin
 **Database:** PostgreSQL / Supabase
 **Backend:** Python + FastAPI
